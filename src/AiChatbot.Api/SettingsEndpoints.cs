@@ -4,33 +4,62 @@ public record OpenAiInput(string? ApiKey, string? BaseUrl, string? Model);
 public record OllamaInput(string? BaseUrl, string? Model);
 
 // Who may use /api/settings. With Admin:ApiKey set, the X-Admin-Key header must match it.
-// Without it, only loopback callers get in (the local dev UI and its proxy).
+// Without it, only loopback callers addressing the server as localhost get in (the local dev UI and its proxy);
+// the Host check stops DNS-rebinding pages from reaching it through the browser.
 public static class SettingsAccess
 {
-    public static bool IsAllowed(System.Net.IPAddress? remote, string? headerKey, string? adminKey)
+    private static readonly string[] LocalHostNames = ["localhost", "127.0.0.1", "[::1]", "::1"];
+
+    public static bool IsAllowed(System.Net.IPAddress? remote, string? headerKey, string? adminKey, string? host = null)
     {
-        if (string.IsNullOrEmpty(adminKey)) return remote is not null && System.Net.IPAddress.IsLoopback(remote);
+        if (string.IsNullOrEmpty(adminKey))
+            return remote is not null && System.Net.IPAddress.IsLoopback(remote)
+                && host is not null && LocalHostNames.Contains(HostOnly(host), StringComparer.OrdinalIgnoreCase);
         if (string.IsNullOrEmpty(headerKey)) return false;
         return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
             System.Text.Encoding.UTF8.GetBytes(headerKey), System.Text.Encoding.UTF8.GetBytes(adminKey));
     }
+
+    // "localhost:5070" -> "localhost", "[::1]:5070" -> "[::1]"
+    private static string HostOnly(string host)
+    {
+        var h = host.Trim();
+        if (h.StartsWith('[')) { var end = h.IndexOf(']'); return end < 0 ? h : h[..(end + 1)]; }
+        var colon = h.LastIndexOf(':');
+        return colon > 0 && h.IndexOf(':') == colon ? h[..colon] : h;
+    }
 }
 
-// Provider URLs are server-side request targets: http(s) only, no embedded credentials,
-// and never link-local or cloud-metadata addresses. Hostnames that resolve to such addresses are not checked.
+// Provider URLs are server-side request targets: http(s) only, no embedded credentials, and never link-local or
+// cloud-metadata addresses (including IPv4 hidden in IPv4-mapped, IPv4-compatible and NAT64 IPv6 forms).
+// Hostnames are not resolved, so a name that points at such an address is not caught here.
 public static class SettingsUrl
 {
+    private static readonly string[] MetadataNames = ["metadata", "metadata.google.internal", "instance-data"];
+
     public static bool IsAcceptable(string? s)
     {
         if (!Uri.TryCreate(s, UriKind.Absolute, out var u)) return false;
         if (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps) return false;
         if (u.UserInfo.Length > 0) return false;
-        if (u.Host.Equals("metadata.google.internal", StringComparison.OrdinalIgnoreCase)) return false;
-        if (!System.Net.IPAddress.TryParse(u.IdnHost, out var ip)) return true;
-        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
-        if (ip.IsIPv6LinkLocal) return false;
+        var host = u.IdnHost.TrimEnd('.').ToLowerInvariant();
+        if (MetadataNames.Contains(host)) return false;
+        if (!System.Net.IPAddress.TryParse(host, out var ip)) return true;
+        if (ip.IsIPv6LinkLocal || ip.Equals(System.Net.IPAddress.Parse("fd00:ec2::254"))) return false;
+        var v4 = EmbeddedIPv4(ip);
+        return v4 is null || !(v4[0] == 169 && v4[1] == 254);
+    }
+
+    // The IPv4 address carried by ::ffff:a.b.c.d, ::a.b.c.d or 64:ff9b::a.b.c.d (NAT64); null for other addresses
+    private static byte[]? EmbeddedIPv4(System.Net.IPAddress ip)
+    {
         var b = ip.GetAddressBytes();
-        return !(b.Length == 4 && b[0] == 169 && b[1] == 254) && !ip.Equals(System.Net.IPAddress.Parse("fd00:ec2::254"));
+        if (b.Length == 4) return b;
+        var zeroPrefix = b[..10].All(x => x == 0);
+        var mapped = zeroPrefix && b[10] == 0xff && b[11] == 0xff;
+        var compatible = zeroPrefix && b[10] == 0 && b[11] == 0;
+        var nat64 = b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b && b[4..12].All(x => x == 0);
+        return mapped || compatible || nat64 ? b[12..] : null;
     }
 
     public static bool Same(string? a, string? b) =>
@@ -76,7 +105,7 @@ public static class SettingsEndpoints
         g.AddEndpointFilter(async (ctx, next) =>
         {
             var http = ctx.HttpContext;
-            return SettingsAccess.IsAllowed(http.Connection.RemoteIpAddress, http.Request.Headers["X-Admin-Key"], adminKey)
+            return SettingsAccess.IsAllowed(http.Connection.RemoteIpAddress, http.Request.Headers["X-Admin-Key"], adminKey, http.Request.Host.Value)
                 ? await next(ctx)
                 : Results.Json(new { error = "Settings are restricted" }, statusCode: StatusCodes.Status403Forbidden);
         });

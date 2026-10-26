@@ -19,13 +19,31 @@ public class SettingsSecurityTests
     [InlineData("::1")]
     [InlineData("::ffff:127.0.0.1")]
     public void Without_an_admin_key_loopback_callers_are_allowed(string ip)
-        => Assert.True(SettingsAccess.IsAllowed(IPAddress.Parse(ip), null, null));
+        => Assert.True(SettingsAccess.IsAllowed(IPAddress.Parse(ip), null, null, "localhost:5070"));
 
     [Theory]
     [InlineData("203.0.113.9")]
     [InlineData("10.0.0.5")]
     public void Without_an_admin_key_remote_callers_are_denied(string ip)
-        => Assert.False(SettingsAccess.IsAllowed(IPAddress.Parse(ip), null, null));
+        => Assert.False(SettingsAccess.IsAllowed(IPAddress.Parse(ip), null, null, "localhost:5070"));
+
+    [Theory]
+    [InlineData("localhost")]
+    [InlineData("localhost:5070")]
+    [InlineData("LOCALHOST:5070")]
+    [InlineData("127.0.0.1:5070")]
+    [InlineData("[::1]:5070")]
+    public void Loopback_with_a_local_host_header_is_allowed(string host)
+        => Assert.True(SettingsAccess.IsAllowed(IPAddress.Loopback, null, null, host));
+
+    [Theory]
+    [InlineData("evil.example.com")]
+    [InlineData("evil.example.com:5070")]
+    [InlineData("localhost.evil.example.com")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Loopback_with_any_other_host_header_is_denied_so_dns_rebinding_fails(string? host)
+        => Assert.False(SettingsAccess.IsAllowed(IPAddress.Loopback, null, null, host));
 
     [Fact]
     public void Unknown_remote_address_is_denied() => Assert.False(SettingsAccess.IsAllowed(null, null, null));
@@ -70,6 +88,13 @@ public class SettingsSecurityTests
     [InlineData("http://[fe80::1]/")]
     [InlineData("http://[fd00:ec2::254]/")]
     [InlineData("http://metadata.google.internal/")]
+    [InlineData("http://metadata.google.internal./")]
+    [InlineData("http://METADATA/")]
+    [InlineData("http://169.254.169.254./")]
+    [InlineData("http://2852039166/")]
+    [InlineData("http://0xA9FEA9FE/")]
+    [InlineData("http://[::169.254.169.254]/")]
+    [InlineData("http://[64:ff9b::169.254.169.254]/")]
     [InlineData("http://user:pass@localhost:11434")]
     [InlineData("ftp://localhost/")]
     [InlineData("not a url")]
