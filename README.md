@@ -23,7 +23,9 @@ dotnet user-secrets set "Llm:OpenAI:ApiKey" "sk-..."
 dotnet run            # http://localhost:5070
 ```
 
-Or set env var `Llm__OpenAI__ApiKey`. Never commit keys.
+Or set env var `Llm__OpenAI__ApiKey`. Never commit keys; `appsettings.json` keeps `ApiKey` empty.
+
+`/api/settings/*` is restricted: loopback callers only by default. To expose it elsewhere, set `Admin:ApiKey` (user-secrets / env `Admin__ApiKey`) and send it as the `X-Admin-Key` header; the local dev UI does not send it. A saved OpenAI key is only reused while the base URL is unchanged, and link-local / metadata URLs are rejected.
 
 ## Safe-to-share layer
 
