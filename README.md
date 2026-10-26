@@ -5,6 +5,8 @@
 ```
 client/               # Angular 20 UI (zoneless, standalone; AiChatbot.Client.esproj in the solution)
 src/
+├── AiChatbot.Safety/ # tokenization, input screen, policy gate (single enforcement point)
+├── AiChatbot.Data/   # SQL Server report reader (reads two reporting views)
 ├── AiChatbot.Api/    # ASP.NET Core minimal API: /api/health, /api/chat (NDJSON stream), /api/settings
 ├── AiChatbot.Agent/  # ChatAgent + conversation store (history, calls IChatClient)
 └── AiChatbot.Llm/    # OpenAI / Ollama providers, settings (Microsoft.Extensions.AI)
@@ -34,8 +36,8 @@ Or set env var `Llm__OpenAI__ApiKey`. Never commit keys; `appsettings.json` keep
 - `ITokenizationService`: labelled identifiers ("account 12345", "MRN 12345", "#12345") become `{ACCT_n}` tokens, kept per conversation in server memory. History stores tokenized text only.
 - `ExternalInputScreen`: for external providers (OpenAI), a prompt with unlabelled 4+ digit numbers, emails, phone/SSN/DOB-like text, names or odd Unicode is not sent. The user gets a rephrase message and only `[withheld]` is stored. Ollama is treated as local (not screened) only when its URL is loopback or its host is listed in `Safety:LocalHosts`; any other Ollama host is treated as external.
 - `PolicyGate` + `DataClass`: Local sees everything. External never sees patient-level values; facility aggregates only when `Safety:AllowAggregateToExternal=true`.
-- Data tools (`GetPatientSummary`, `GetFacilityMetrics` in `AiChatbot.Agent/Tools`): the model passes tokens and allow-listed names. When policy blocks a value, the model gets `{PLACEHOLDER}` names and the server fills the figures into the reply. An external answer containing a number the model was never shown is replaced by a server-built listing.
-- Tool data is **synthetic** (`SyntheticReportDataReader`). Implement `IReportDataReader` for real data.
+- Data tools (`GetPatientSummary`, `GetFacilityMetrics` in `AiChatbot.Agent/Tools`): the model passes a token or a facility name; the data source decides what exists. When policy blocks a value, the model gets `{PLACEHOLDER}` names and the server fills the figures into the reply. An external answer containing a number the model was never shown is replaced by a server-built listing.
+- Tool data comes from `IReportDataReader`: synthetic demo data by default, or SQL Server (`Reports:Provider=Sql`) reading two reporting views. See [docs/Data_Dictionary.md](docs/Data_Dictionary.md) and [docs/SQL_Reporting_Query_Layer.md](docs/SQL_Reporting_Query_Layer.md). `scripts/dev-reporting-db.sql` builds a local sample database.
 
 Limits: the screen is a mitigation, not de-identification (single first names, spelled-out digits, URLs pass). Token maps are in memory and lost on restart.
 

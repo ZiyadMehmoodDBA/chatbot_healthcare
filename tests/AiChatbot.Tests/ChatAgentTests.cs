@@ -165,7 +165,7 @@ public class ChatAgentTests
             Text("Account {ACCT_1} has {PATIENT_ADMISSIONS} admissions."));
         var agent = Make(client, ProviderKind.External, out var store);
         var id = Guid.NewGuid();
-        var expected = new SyntheticReportDataReader().GetPatientSummary(12345)!;
+        var expected = (await new SyntheticReportDataReader().GetPatientSummaryAsync(12345))!;
 
         var deltas = await Collect(agent, id, "summary for account 12345");
 
@@ -185,7 +185,7 @@ public class ChatAgentTests
             Call(ReportTools.PatientSummaryName, "account", "{ACCT_1}"),
             Text("Admissions: {PATIENT_", "ADMISSIONS}"));
         var agent = Make(client, ProviderKind.Local, out _);
-        var expected = new SyntheticReportDataReader().GetPatientSummary(12345)!;
+        var expected = (await new SyntheticReportDataReader().GetPatientSummaryAsync(12345))!;
 
         var deltas = await Collect(agent, Guid.NewGuid(), "summary for account 12345");
 
@@ -218,7 +218,7 @@ public class ChatAgentTests
             Call(ReportTools.PatientSummaryName, "account", "{ACCT_1}"),
             Text("Account {ACCT_1} has 99 admissions."));
         var agent = Make(client, ProviderKind.External, out _);
-        var expected = new SyntheticReportDataReader().GetPatientSummary(12345)!;
+        var expected = (await new SyntheticReportDataReader().GetPatientSummaryAsync(12345))!;
 
         var output = string.Concat(await Collect(agent, Guid.NewGuid(), "summary for account 12345"));
 

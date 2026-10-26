@@ -26,10 +26,25 @@ public sealed class ReportTools(IReportDataReader reader, ITokenizationService t
         AIFunctionFactory.CreateDeclaration(
             FacilityMetricsName,
             "Get readmission rate, average length of stay and incident count for one facility.",
-            JsonDocument.Parse("""{"type":"object","properties":{"facility":{"type":"string","enum":["north","south","east","west"]}},"required":["facility"],"additionalProperties":false}""").RootElement),
+            JsonDocument.Parse("""{"type":"object","properties":{"facility":{"type":"string","maxLength":100,"description":"Facility name, for example north"}},"required":["facility"],"additionalProperties":false}""").RootElement),
     ];
 
-    public ToolResult Execute(Guid conversationId, string name, IDictionary<string, object?>? args)
+    // Data-source failures become "unavailable" so an outage is never mistaken for "no such record"
+    public async Task<ToolResult> ExecuteAsync(
+        Guid conversationId, string name, IDictionary<string, object?>? args, CancellationToken ct = default)
+    {
+        try
+        {
+            return await RunAsync(conversationId, name, args, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return ToolResult.Fail("unavailable");
+        }
+    }
+
+    private async Task<ToolResult> RunAsync(
+        Guid conversationId, string name, IDictionary<string, object?>? args, CancellationToken ct)
     {
         switch (name)
         {
@@ -37,7 +52,7 @@ public sealed class ReportTools(IReportDataReader reader, ITokenizationService t
             {
                 // Unknown token, unknown number and missing data all look the same to the model
                 if (Arg(args, "account") is not { } raw || !tokens.TryResolveAccount(conversationId, raw, out var account)
-                    || reader.GetPatientSummary(account) is not { } p)
+                    || await reader.GetPatientSummaryAsync(account, ct) is not { } p)
                     return ToolResult.Fail("not_found");
                 return new ToolResult(DataClass.PatientLevel, new Dictionary<string, string>
                 {
@@ -48,7 +63,7 @@ public sealed class ReportTools(IReportDataReader reader, ITokenizationService t
             }
             case FacilityMetricsName:
             {
-                if (Arg(args, "facility") is not { } f || reader.GetFacilityMetrics(f) is not { } m)
+                if (Arg(args, "facility") is not { } f || await reader.GetFacilityMetricsAsync(f, ct) is not { } m)
                     return ToolResult.Fail("not_found");
                 return new ToolResult(DataClass.Aggregate, new Dictionary<string, string>
                 {

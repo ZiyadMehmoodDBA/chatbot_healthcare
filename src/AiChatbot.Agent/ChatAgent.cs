@@ -32,7 +32,7 @@ public sealed class ChatAgent(IChatClientProvider llm, IConversationStore store,
         - For patient or facility figures, call GetPatientSummary or GetFacilityMetrics. Never answer such questions from memory.
         - A tool result gives either values or placeholders such as {PATIENT_ADMISSIONS}. When it gives a placeholder, write that
           placeholder exactly and write no digits or number words for it; the server fills in the real figure.
-        - If a tool returns an error, say you could not find that data.
+        - If a tool returns an error, say you could not retrieve that data.
         """;
 
     public string Model => llm.Resolve().Model;
@@ -96,7 +96,7 @@ public sealed class ChatAgent(IChatClientProvider llm, IConversationStore store,
             messages.Add(new ChatMessage(ChatRole.Assistant, calls.Cast<AIContent>().ToList()));
             foreach (var call in calls)
             {
-                var payload = RunTool(conversationId, call, chat.Kind, values, shown);
+                var payload = await RunToolAsync(conversationId, call, chat.Kind, values, shown, ct);
                 messages.Add(new ChatMessage(ChatRole.Tool,
                     new List<AIContent> { new FunctionResultContent(call.CallId, payload) }));
             }
@@ -112,11 +112,11 @@ public sealed class ChatAgent(IChatClientProvider llm, IConversationStore store,
     }
 
     // What the model gets back: real values when the policy allows, otherwise the placeholder names only.
-    private Dictionary<string, string> RunTool(
+    private async Task<Dictionary<string, string>> RunToolAsync(
         Guid conversationId, FunctionCallContent call, ProviderKind kind,
-        Dictionary<string, string> values, List<string> shown)
+        Dictionary<string, string> values, List<string> shown, CancellationToken ct)
     {
-        var result = tools.Execute(conversationId, call.Name, call.Arguments);
+        var result = await tools.ExecuteAsync(conversationId, call.Name, call.Arguments, ct);
         if (result.Error is { } error) return new() { ["error"] = error };
 
         foreach (var (key, value) in result.Values) values[key] = value;

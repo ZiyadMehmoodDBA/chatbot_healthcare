@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using AiChatbot.Agent;
 using AiChatbot.Agent.Tools;
+using AiChatbot.Data;
 using AiChatbot.Llm;
 using AiChatbot.Safety;
 
@@ -9,7 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IConversationStore, InMemoryConversationStore>();
 builder.Services.AddSafety(builder.Configuration);
-builder.Services.AddSingleton<IReportDataReader, SyntheticReportDataReader>();
+builder.Services.AddReportData(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton<ReportTools>();
 builder.Services.AddLlm(builder.Configuration, Path.Combine(builder.Environment.ContentRootPath, "settings.json"));
 builder.Services.AddScoped<ChatAgent>();

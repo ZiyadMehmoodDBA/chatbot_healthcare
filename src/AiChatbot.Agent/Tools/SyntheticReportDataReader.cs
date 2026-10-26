@@ -1,24 +1,24 @@
 namespace AiChatbot.Agent.Tools;
 
-// SYNTHETIC demo data, derived deterministically from the inputs. Not real figures; replace before real use.
+// SYNTHETIC demo data, derived deterministically from the inputs. Not real figures; the default until a
+// real reader is configured (Reports:Provider=Sql).
 public sealed class SyntheticReportDataReader : IReportDataReader
 {
     private static readonly string[] Names = ["north", "south", "east", "west"];
 
-    public IReadOnlyList<string> Facilities => Names;
-
-    public PatientSummary? GetPatientSummary(long account)
+    public Task<PatientSummary?> GetPatientSummaryAsync(long account, CancellationToken ct = default)
     {
-        if (account < 1000) return null;
+        if (account < 1000) return Task.FromResult<PatientSummary?>(null);
         var seed = (int)(account % 9973);
         var visit = new DateOnly(2026, 1, 1).AddDays(seed % 300);
-        return new PatientSummary(1 + seed % 7, visit.ToString("yyyy-MM-dd"), seed % 4);
+        return Task.FromResult<PatientSummary?>(new PatientSummary(1 + seed % 7, visit.ToString("yyyy-MM-dd"), seed % 4));
     }
 
-    public FacilityMetrics? GetFacilityMetrics(string facility)
+    public Task<FacilityMetrics?> GetFacilityMetricsAsync(string facility, CancellationToken ct = default)
     {
         var i = Array.IndexOf(Names, facility.Trim().ToLowerInvariant());
-        if (i < 0) return null;
-        return new FacilityMetrics(6.5 + i * 1.3, 3.8 + i * 0.4, 12 + i * 5, "2026-10-25");
+        return Task.FromResult<FacilityMetrics?>(i < 0
+            ? null
+            : new FacilityMetrics(6.5 + i * 1.3, 3.8 + i * 0.4, 12 + i * 5, "2026-10-25"));
     }
 }
