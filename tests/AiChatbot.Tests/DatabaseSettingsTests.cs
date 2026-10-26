@@ -18,7 +18,7 @@ public class DatabaseSettingsModelTests
     public void Windows_auth_connection_string_is_read_only_with_a_short_timeout_and_no_password()
     {
         var b = new SqlConnectionStringBuilder(Sql().BuildConnectionString());
-        Assert.Equal("myserver\\inst", b.DataSource);
+        Assert.Equal("tcp:myserver\\inst", b.DataSource);
         Assert.Equal("Reporting", b.InitialCatalog);
         Assert.True(b.IntegratedSecurity);
         Assert.Equal(ApplicationIntent.ReadOnly, b.ApplicationIntent);
@@ -33,8 +33,18 @@ public class DatabaseSettingsModelTests
         Assert.Equal("p@ss;word=1", b.Password);
         Assert.Equal("svc_reader", b.UserID);
         Assert.False(b.IntegratedSecurity);
-        Assert.Equal("myserver\\inst", b.DataSource); // nothing smuggled into another keyword
+        Assert.Equal("tcp:myserver\\inst", b.DataSource); // nothing smuggled into another keyword
     }
+
+    [Theory]
+    [InlineData("myserver", "tcp:myserver")]
+    [InlineData("myserver,1433", "tcp:myserver,1433")]
+    [InlineData("tcp:myserver", "tcp:myserver")]
+    [InlineData("(localdb)\\MSSQLLocalDB", "(localdb)\\MSSQLLocalDB")]
+    [InlineData("localhost", "tcp:localhost")]
+    [InlineData(".", ".")]
+    public void Remote_servers_are_forced_onto_tcp_to_avoid_the_named_pipes_fallback(string server, string expected)
+        => Assert.Equal(expected, new SqlConnectionStringBuilder((Sql() with { Server = server }).BuildConnectionString()).DataSource);
 
     [Fact]
     public void Encrypt_and_trust_flags_are_honoured()

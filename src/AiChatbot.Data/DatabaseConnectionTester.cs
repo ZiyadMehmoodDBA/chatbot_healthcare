@@ -96,6 +96,8 @@ public static class DatabaseConnectionTester
         SqlException { Number: 18456 } => "Login failed. Check the user name and password.",
         SqlException { Number: 4060 } => "The database could not be opened. Check the database name and that the login can access it.",
         SqlException { Number: -2 or 258 } => "The server did not respond in time. Check the server name, port and firewall.",
+        SqlException { Number: 1326 }
+            => "Could not reach the server over TCP. Check the server name and port (try host,1433), that TCP/IP is enabled on the server, and for a named instance that SQL Browser is reachable or use host,port.",
         SqlException { Number: 53 or -1 or 40 or 10060 or 10061 or 11001 }
             => "The server could not be reached. Check the server name, port and firewall.",
         SqlException e => $"Could not connect (SQL error {e.Number}).",

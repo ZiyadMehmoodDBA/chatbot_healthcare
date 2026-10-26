@@ -34,12 +34,22 @@ public sealed record DatabaseSettings(
         DbMode.Synthetic, "", "", DbAuth.Windows, "", "", Encrypt: true, TrustServerCertificate: false,
         "reporting.vw_PatientSummary", "reporting.vw_FacilityMetrics");
 
+    // Remote servers are reached over TCP only. Without a protocol the driver falls back to Named Pipes, which
+    // fails with a confusing Win32 error (1326). LocalDB and local shared memory keep their own protocol.
+    private static string TcpTarget(string server)
+    {
+        if (server.Contains(':') && server.IndexOf(':') <= 6 && !server.StartsWith("[")) return server; // tcp:/np:/lpc:
+        if (server.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)
+            || server is "." or "(local)" || server.StartsWith(".\\")) return server;
+        return "tcp:" + server;
+    }
+
     // Read-only intent and a short connect timeout; the password only ever lives in this string, in memory.
     public string BuildConnectionString()
     {
         var b = new SqlConnectionStringBuilder
         {
-            DataSource = Server.Trim(),
+            DataSource = TcpTarget(Server.Trim()),
             InitialCatalog = Database.Trim(),
             ConnectTimeout = 5,
             ApplicationName = "AiChatbot",
