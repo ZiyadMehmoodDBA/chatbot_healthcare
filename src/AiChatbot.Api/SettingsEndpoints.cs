@@ -36,6 +36,7 @@ public static class SettingsAccess
 public static class SettingsUrl
 {
     private static readonly string[] MetadataNames = ["metadata", "metadata.google.internal", "instance-data"];
+    private static readonly byte[] AwsImdsV6 = System.Net.IPAddress.Parse("fd00:ec2::254").GetAddressBytes();
 
     public static bool IsAcceptable(string? s)
     {
@@ -45,7 +46,9 @@ public static class SettingsUrl
         var host = u.IdnHost.TrimEnd('.').ToLowerInvariant();
         if (MetadataNames.Contains(host)) return false;
         if (!System.Net.IPAddress.TryParse(host, out var ip)) return true;
-        if (ip.IsIPv6LinkLocal || ip.Equals(System.Net.IPAddress.Parse("fd00:ec2::254"))) return false;
+        // Zone IDs change IPAddress equality but not the target, so refuse them and compare raw bytes
+        if (host.Contains('%') || (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 && ip.ScopeId != 0)) return false;
+        if (ip.IsIPv6LinkLocal || ip.GetAddressBytes().SequenceEqual(AwsImdsV6)) return false;
         var v4 = EmbeddedIPv4(ip);
         return v4 is null || !(v4[0] == 169 && v4[1] == 254);
     }
