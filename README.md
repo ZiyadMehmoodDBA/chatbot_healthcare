@@ -30,7 +30,7 @@ Or set env var `Llm__OpenAI__ApiKey`. Never commit keys.
 `AiChatbot.Safety` sits between the user and the LLM. The frontend and the prompt do none of this.
 
 - `ITokenizationService`: labelled identifiers ("account 12345", "MRN 12345", "#12345") become `{ACCT_n}` tokens, kept per conversation in server memory. History stores tokenized text only.
-- `ExternalInputScreen`: for external providers (OpenAI), a prompt with unlabelled 4+ digit numbers, emails, phone/SSN/DOB-like text, names or odd Unicode is not sent. The user gets a rephrase message and only `[withheld]` is stored. Ollama is treated as local and is not screened.
+- `ExternalInputScreen`: for external providers (OpenAI), a prompt with unlabelled 4+ digit numbers, emails, phone/SSN/DOB-like text, names or odd Unicode is not sent. The user gets a rephrase message and only `[withheld]` is stored. Ollama is treated as local (not screened) only when its URL is loopback or its host is listed in `Safety:LocalHosts`; any other Ollama host is treated as external.
 - `PolicyGate` + `DataClass`: Local sees everything. External never sees patient-level values; facility aggregates only when `Safety:AllowAggregateToExternal=true`.
 - Data tools (`GetPatientSummary`, `GetFacilityMetrics` in `AiChatbot.Agent/Tools`): the model passes tokens and allow-listed names. When policy blocks a value, the model gets `{PLACEHOLDER}` names and the server fills the figures into the reply. An external answer containing a number the model was never shown is replaced by a server-built listing.
 - Tool data is **synthetic** (`SyntheticReportDataReader`). Implement `IReportDataReader` for real data.

@@ -81,9 +81,10 @@ public sealed class OllamaProvider : LlmProviderBase
     private readonly HttpClient _http;
     private readonly OllamaSettings _settings;
 
-    public OllamaProvider(OllamaSettings settings, HttpClient http)
+    public OllamaProvider(OllamaSettings settings, HttpClient http, ProviderKind kind)
     {
         _settings = settings;
+        Kind = kind;
         _http = http;
         _http.BaseAddress = new Uri(settings.BaseUrl.TrimEnd('/') + "/");
         // Slow local models legitimately generate for minutes
@@ -91,8 +92,8 @@ public sealed class OllamaProvider : LlmProviderBase
     }
 
     public override string Model => _settings.Model;
-    // Assumes the Ollama host is on infrastructure we control
-    public override ProviderKind Kind => ProviderKind.Local;
+    // Decided by the factory from the host: Local only for loopback or an operator-trusted host
+    public override ProviderKind Kind { get; }
     public override IChatClient ChatClient => new OllamaApiClient(_http, _settings.Model);
 
     // Locally installed models via /api/tags
