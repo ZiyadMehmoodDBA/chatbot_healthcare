@@ -93,8 +93,13 @@ public static class DatabaseConnectionTester
     {
         SqlException e when e.Message.Contains("certificate", StringComparison.OrdinalIgnoreCase)
             => "The server certificate is not trusted. Install a trusted certificate, or (development only) turn on Trust server certificate.",
-        SqlException { Number: 18456 } => "Login failed. Check the user name and password.",
-        SqlException { Number: 4060 } => "The database could not be opened. Check the database name and that the login can access it.",
+        // State 38 and 40 mean the login is fine but the requested database could not be opened
+        SqlException { Number: 18456, State: 38 or 40 }
+            => "The database could not be opened. Check the database name and that the login can access it. (SQL error 18456 state 38)",
+        SqlException { Number: 18456 } e => $"Login failed. Check the user name and password. (SQL error 18456 state {e.State})",
+        SqlException e when e.Number == 4060 || e.Errors.Cast<SqlError>().Any(x => x.Number == 4060)
+            => "The database could not be opened. Check the database name and that the login can access it. " +
+               $"(SQL errors: {string.Join(", ", e.Errors.Cast<SqlError>().Select(x => $"{x.Number} state {x.State}"))})",
         SqlException { Number: -2 or 258 } => "The server did not respond in time. Check the server name, port and firewall.",
         SqlException { Number: 1326 }
             => "Could not reach the server over TCP. Check the server name and port (try host,1433), that TCP/IP is enabled on the server, and for a named instance that SQL Browser is reachable or use host,port.",
