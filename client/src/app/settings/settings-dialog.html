@@ -8,77 +8,88 @@
   </div>
 
   @if (tab() === 'db') {
-    <app-database-settings />
-    <footer>
-      <button type="button" class="ghost" (click)="close()">Close</button>
-    </footer>
+    <app-database-settings (closed)="close()" />
   } @else {
-  @if (activeLlm()) {
-    <p class="muted">Active: {{ activeLlm() }}</p>
-  }
-
-  <label>
-    Provider
-    <select name="provider" [ngModel]="provider()" (ngModelChange)="provider.set($event)">
-      <option value="openai">OpenAI</option>
-      <option value="ollama">Ollama (local)</option>
-    </select>
-  </label>
-
-  @if (provider() === 'openai') {
-    <label>
-      API key
-      <input type="password" name="key" [placeholder]="keyPlaceholder()" [(ngModel)]="openaiApiKey" />
-    </label>
-    <label>
-      Base URL
-      <input name="openaiUrl" [(ngModel)]="openaiBaseUrl" />
-    </label>
-  } @else {
-    <label>
-      Base URL
-      <input name="ollamaUrl" [(ngModel)]="ollamaBaseUrl" />
-    </label>
-  }
-
-  <label>
-    Model
-    @if (models(); as list) {
-      @if (list.length > 0) {
-        <select name="modelSel" [(ngModel)]="model">
-          @for (m of list; track m) {
-            <option [value]="m">{{ m }}</option>
-          }
-        </select>
-      } @else {
-        <input name="modelTxt" placeholder="model name" [(ngModel)]="model" />
+    <p class="intro">
+      The AI model answers chat questions. Pick a provider, check the connection, then save.
+      @if (activeLlm()) {
+        <br />Active: {{ activeLlm() }}
       }
+    </p>
+
+    <label class="field">
+      Provider
+      <select name="provider" [ngModel]="provider()" (ngModelChange)="provider.set($event); changed()">
+        <option value="openai">OpenAI</option>
+        <option value="ollama">Ollama (local)</option>
+      </select>
+      <span class="hint">OpenAI is a hosted service. Ollama runs on your own machine or network.</span>
+    </label>
+
+    @if (provider() === 'openai') {
+      <label class="field">
+        API key
+        <input type="password" name="key" autocomplete="new-password" [placeholder]="keyPlaceholder()"
+          [(ngModel)]="openaiApiKey" (ngModelChange)="changed()" />
+        <span class="hint">Kept on the server and never shown again. Leave blank to keep the saved key.</span>
+      </label>
+      <label class="field">
+        Base URL
+        <input name="openaiUrl" [(ngModel)]="openaiBaseUrl" (ngModelChange)="changed()" />
+        <span class="hint">Change only to use an OpenAI-compatible endpoint. The saved key is not reused for a different URL.</span>
+      </label>
     } @else {
-      <input name="modelTxt" placeholder="loading models..." [(ngModel)]="model" />
+      <label class="field">
+        Base URL
+        <input name="ollamaUrl" [(ngModel)]="ollamaBaseUrl" (ngModelChange)="changed()" />
+        <span class="hint">Where Ollama is running, usually http://localhost:11434.</span>
+      </label>
     }
-  </label>
-  @if (modelsError()) {
-    <p class="muted small">Could not list models ({{ modelsError() }}). Type a model name manually.</p>
-  }
 
-  @if (test().status === 'ok') {
-    <p class="ok">Connected</p>
-  }
-  @if (test(); as t) {
-    @if (t.status === 'failed') {
-      <p class="err">{{ t.error }}</p>
+    <label class="field">
+      Model
+      @if (models(); as list) {
+        @if (list.length > 0) {
+          <select name="modelSel" [(ngModel)]="model" (ngModelChange)="changed()">
+            @for (m of list; track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+        } @else {
+          <input name="modelTxt" placeholder="model name" [(ngModel)]="model" (ngModelChange)="changed()" />
+        }
+      } @else {
+        <input name="modelTxt" placeholder="loading models..." [(ngModel)]="model" />
+      }
+      <span class="hint">The model that writes the answers. The list comes from the provider.</span>
+    </label>
+    @if (modelsError()) {
+      <p class="status warn small">Could not list models ({{ modelsError() }}). Type a model name manually.</p>
     }
-  }
-  @if (saveError()) {
-    <p class="err">{{ saveError() }}</p>
-  }
 
-  <footer>
-    <button type="button" class="ghost" (click)="close()">Cancel</button>
-    <button type="button" class="outline" (click)="runTest()" [disabled]="test().status === 'testing'">
-      {{ test().status === 'testing' ? 'Testing...' : 'Test connection' }}
-    </button>
-    <button type="button" (click)="save()">Save</button>
-  </footer>
+    @if (test().status === 'testing') {
+      <p class="status info">Testing connection...</p>
+    } @else if (test().status === 'ok') {
+      <p class="status ok">Connected</p>
+    }
+    @if (test(); as t) {
+      @if (t.status === 'failed') {
+        <p class="status err">Not connected: {{ t.error }}</p>
+      }
+    }
+    @if (saveError()) {
+      <p class="status err">{{ saveError() }}</p>
+    }
+    @if (saved()) {
+      <p class="status ok">{{ saved() }}</p>
+    }
+
+    <div class="actions">
+      <button type="button" class="ghost" (click)="close()">Close</button>
+      <button type="button" class="outline" (click)="runTest()" [disabled]="test().status === 'testing'">
+        {{ test().status === 'testing' ? 'Testing...' : 'Test connection' }}
+      </button>
+      <button type="button" (click)="save()">Save</button>
+    </div>
   }
 </dialog>

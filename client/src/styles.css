@@ -7,6 +7,8 @@
   --primary-fg: #fafafa;
   --bubble-bot: #f4f4f5;
   --danger: #dc2626;
+  --ok: #16a34a;
+  --warn: #b45309;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -19,6 +21,8 @@
     --primary-fg: #18181b;
     --bubble-bot: #27272a;
     --danger: #f87171;
+    --ok: #4ade80;
+    --warn: #fbbf24;
   }
 }
 * {
@@ -29,4 +33,94 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   color: light-dark(#18181b, #fafafa);
   background: var(--bg);
+}
+
+/* Shared form language for the settings tabs: intro, field + hint, status line, action row */
+.intro {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.field.check {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.5rem;
+  font-weight: 400;
+}
+.field.check .hint {
+  flex-basis: 100%;
+  padding-left: 1.5rem;
+}
+.field input:not([type='checkbox']),
+.field select {
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-weight: 400;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+.field select option {
+  color: initial;
+}
+.hint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.status {
+  margin: 0;
+  font-size: 0.875rem;
+}
+.status.ok {
+  color: var(--ok);
+}
+.status.err {
+  color: var(--danger);
+}
+.status.warn {
+  color: var(--warn);
+}
+.status.info {
+  color: var(--muted);
+}
+.status.small {
+  font-size: 0.75rem;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.actions button {
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  border: 1px solid var(--primary);
+  border-radius: 0.5rem;
+  background: var(--primary);
+  color: var(--primary-fg);
+  cursor: pointer;
+}
+.actions button.outline {
+  background: transparent;
+  color: inherit;
+  border-color: var(--border);
+}
+.actions button.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: transparent;
+}
+.actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

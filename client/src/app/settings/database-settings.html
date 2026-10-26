@@ -1,103 +1,117 @@
 @if (loading()) {
-  <p class="muted">Loading...</p>
+  <p class="status info">Loading...</p>
 } @else {
-  @if (active()) {
-    <p class="muted">Active: {{ active() }}</p>
-  }
+  <p class="intro">
+    Where the chat gets its report figures. Use demo data to try the app, or connect to a SQL Server
+    that holds the two reporting views. Check the connection, then save.
+    @if (active()) {
+      <br />Active: {{ active() }}
+    }
+  </p>
 
-  <label>
+  <label class="field">
     Data source
     <select name="mode" [ngModel]="mode()" (ngModelChange)="mode.set($event); changed()">
       <option value="synthetic">Demo data (synthetic)</option>
       <option value="sql">SQL Server</option>
     </select>
+    <span class="hint">Demo data is built in and needs no setup.</span>
   </label>
 
   @if (mode() === 'sql') {
-    <label>
+    <label class="field">
       Server
-      <input name="server" placeholder="myserver\instance or (localdb)\MSSQLLocalDB"
+      <input name="server" placeholder="myserver,1433 or (localdb)\MSSQLLocalDB"
         [ngModel]="server()" (ngModelChange)="server.set($event); changed()" />
+      <span class="hint">Host name or address, with a port (host,1433) or an instance (host\instance).</span>
     </label>
-    <label>
+    <label class="field">
       Database
       <input name="database" [ngModel]="database()" (ngModelChange)="database.set($event); changed()" />
+      <span class="hint">The database that contains the reporting views.</span>
     </label>
-    <label>
+    <label class="field">
       Authentication
       <select name="auth" [ngModel]="auth()" (ngModelChange)="auth.set($event); changed()">
         <option value="windows">Windows (current account)</option>
         <option value="sql">SQL Server login</option>
       </select>
+      <span class="hint">Windows uses the account the API runs as. SQL Server login uses the user name and password below.</span>
     </label>
     @if (auth() === 'sql') {
-      <label>
+      <label class="field">
         User name
         <input name="user" autocomplete="off" [ngModel]="user()" (ngModelChange)="user.set($event); changed()" />
+        <span class="hint">Use a read-only login limited to the two views.</span>
       </label>
-      <label>
+      <label class="field">
         Password
         <input type="password" name="password" autocomplete="new-password" [placeholder]="passwordPlaceholder()"
           [ngModel]="password()" (ngModelChange)="password.set($event); changed()" />
+        <span class="hint">Stored encrypted on the server and never shown again. Leave blank to keep the saved password.</span>
       </label>
     }
 
-    <label class="check">
+    <label class="field check">
       <input type="checkbox" name="encrypt" [ngModel]="encrypt()" (ngModelChange)="encrypt.set($event); changed()" />
       Encrypt the connection
+      <span class="hint">Recommended. Turn off only for a local development server without a certificate.</span>
     </label>
-    <label class="check">
+    <label class="field check">
       <input type="checkbox" name="trust" [ngModel]="trustCert()" (ngModelChange)="trustCert.set($event); changed()" />
-      Trust the server certificate (development only)
+      Trust the server certificate
+      <span class="hint">Development only. Skips certificate checks, so do not use it with real data.</span>
     </label>
 
     <details>
       <summary>Advanced: view names</summary>
-      <label>
+      <label class="field">
         Patient summary view
         <input name="pv" [ngModel]="patientView()" (ngModelChange)="patientView.set($event); changed()" />
+        <span class="hint">Answers patient questions. Needs: AccountNumber, Admissions, LastVisitDate, OpenIncidents.</span>
       </label>
-      <label>
+      <label class="field">
         Facility metrics view
         <input name="fv" [ngModel]="facilityView()" (ngModelChange)="facilityView.set($event); changed()" />
+        <span class="hint">Answers facility questions. Needs: Facility, ReadmissionRatePct, AvgLengthOfStayDays, IncidentCount, AsOfDate.</span>
       </label>
     </details>
-    <p class="muted small">
-      Use a read-only login limited to the two views. The password is stored encrypted on the server and is never sent back to the browser.
-    </p>
   }
 
   @if (test(); as t) {
     @if (t.status === 'testing') {
-      <p class="muted">Testing connection...</p>
+      <p class="status info">Testing connection...</p>
     } @else if (t.status === 'failed') {
-      <p class="err">{{ t.error }}</p>
+      <p class="status err">Not connected: {{ t.error }}</p>
     } @else if (t.status === 'done') {
       @if (t.result.connected) {
-        <p class="ok">Connected</p>
-        @for (v of t.result.views; track v.name) {
-          <p class="small" [class.ok]="v.ok" [class.err]="!v.ok">
-            {{ v.ok ? '✓' : '✗' }} {{ v.name }}@if (v.error) { , {{ v.error }} }
-          </p>
-        }
-        @for (w of t.result.warnings; track w) {
-          <p class="warn small">⚠ {{ w }}</p>
-        }
+        <div class="status-list">
+          <p class="status ok">Connected</p>
+          @for (v of t.result.views; track v.name) {
+            <p class="status small" [class.ok]="v.ok" [class.err]="!v.ok">
+              {{ v.ok ? '✓' : '✗' }} {{ v.name }}@if (v.error) { : {{ v.error }} }
+            </p>
+          }
+          @for (w of t.result.warnings; track w) {
+            <p class="status warn small">⚠ {{ w }}</p>
+          }
+        </div>
       } @else {
-        <p class="err">Not connected: {{ t.result.error }}</p>
+        <p class="status err">Not connected: {{ t.result.error }}</p>
       }
     }
   }
   @if (message(); as m) {
-    <p [class.ok]="m.ok" [class.err]="!m.ok">{{ m.text }}</p>
+    <p class="status" [class.ok]="m.ok" [class.err]="!m.ok">{{ m.text }}</p>
   }
 
-  <footer>
-    @if (mode() === 'sql') {
-      <button type="button" class="outline" (click)="runTest()" [disabled]="test().status === 'testing'">
-        {{ test().status === 'testing' ? 'Testing...' : 'Test connection' }}
-      </button>
-    }
+  <div class="actions">
+    <button type="button" class="ghost" (click)="closed.emit()">Close</button>
+    <button type="button" class="outline" (click)="runTest()"
+      [disabled]="mode() !== 'sql' || test().status === 'testing'"
+      [attr.title]="mode() !== 'sql' ? 'Choose SQL Server to test a connection' : null">
+      {{ test().status === 'testing' ? 'Testing...' : 'Test connection' }}
+    </button>
     <button type="button" (click)="save()" [disabled]="busy()">Save</button>
-  </footer>
+  </div>
 }

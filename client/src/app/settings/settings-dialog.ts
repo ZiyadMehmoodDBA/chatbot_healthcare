@@ -29,6 +29,7 @@ export class SettingsDialog {
   protected readonly modelsError = signal('');
   protected readonly test = signal<TestState>({ status: 'idle' });
   protected readonly saveError = signal('');
+  protected readonly saved = signal('');
   protected readonly provider = signal<ProviderName>('openai');
   protected readonly tab = signal<'llm' | 'db'>('llm');
 
@@ -55,8 +56,7 @@ export class SettingsDialog {
   }
 
   protected async open() {
-    this.test.set({ status: 'idle' });
-    this.saveError.set('');
+    this.changed();
     this.dialog().nativeElement.showModal();
     try {
       const s = await this.api.get();
@@ -65,6 +65,13 @@ export class SettingsDialog {
     } catch {
       this.saveError.set('Could not load settings');
     }
+  }
+
+  // Any edit makes the last test and save messages stale
+  protected changed() {
+    this.test.set({ status: 'idle' });
+    this.saveError.set('');
+    this.saved.set('');
   }
 
   protected close() {
@@ -128,9 +135,11 @@ export class SettingsDialog {
 
   protected async save() {
     this.saveError.set('');
+    this.saved.set('');
     try {
       await this.api.save(this.body());
-      this.close();
+      this.apply(await this.api.get());
+      this.saved.set(`Saved. Active: ${this.activeLlm()}`);
     } catch {
       this.saveError.set('Failed to save settings');
     }

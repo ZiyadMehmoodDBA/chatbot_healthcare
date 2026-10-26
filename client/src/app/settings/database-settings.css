@@ -3,35 +3,6 @@
   flex-direction: column;
   gap: 0.85rem;
 }
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-label.check {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 400;
-}
-input,
-select {
-  padding: 0.5rem 0.65rem;
-  font: inherit;
-  font-weight: 400;
-  color: inherit;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-}
-input[type='checkbox'] {
-  padding: 0;
-}
-select option {
-  color: initial;
-}
 details {
   display: flex;
   flex-direction: column;
@@ -42,55 +13,11 @@ summary {
   cursor: pointer;
   color: var(--muted);
 }
-details label {
+details .field {
   margin-top: 0.6rem;
 }
-.muted {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--muted);
-}
-.small {
-  font-size: 0.75rem;
-}
-.ok {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #16a34a;
-}
-.err {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--danger);
-}
-.warn {
-  margin: 0;
-  color: #b45309;
-}
-p.small.ok,
-p.small.err {
-  font-size: 0.75rem;
-}
-footer {
+.status-list {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-footer button {
-  padding: 0.5rem 0.9rem;
-  font: inherit;
-  border: 1px solid var(--primary);
-  border-radius: 0.5rem;
-  background: var(--primary);
-  color: var(--primary-fg);
-  cursor: pointer;
-}
-footer button.outline {
-  background: transparent;
-  color: inherit;
-  border-color: var(--border);
-}
-footer button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  flex-direction: column;
+  gap: 0.25rem;
 }

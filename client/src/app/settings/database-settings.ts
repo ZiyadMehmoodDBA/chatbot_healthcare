@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   DataMode,
@@ -23,6 +23,8 @@ type TestState =
 })
 export class DatabaseSettings implements OnInit {
   private readonly api = inject(DatabaseSettingsService);
+
+  readonly closed = output<void>();
 
   protected readonly loading = signal(true);
   protected readonly active = signal('');
