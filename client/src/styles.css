@@ -69,8 +69,14 @@ body {
   border: 1px solid var(--border);
   border-radius: 0.5rem;
 }
+.field select {
+  width: 100%;
+  min-height: 2.5rem;
+  background-color: var(--card);
+}
 .field select option {
-  color: initial;
+  color: light-dark(#18181b, #fafafa);
+  background-color: var(--card);
 }
 .hint {
   font-size: 0.75rem;
