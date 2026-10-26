@@ -1,0 +1,72 @@
+<button type="button" class="gear" aria-label="Settings" (click)="open()">⚙</button>
+
+<dialog #dlg>
+  <h2>Settings</h2>
+  @if (activeLlm()) {
+    <p class="muted">Active: {{ activeLlm() }}</p>
+  }
+
+  <label>
+    Provider
+    <select name="provider" [ngModel]="provider()" (ngModelChange)="provider.set($event)">
+      <option value="openai">OpenAI</option>
+      <option value="ollama">Ollama (local)</option>
+    </select>
+  </label>
+
+  @if (provider() === 'openai') {
+    <label>
+      API key
+      <input type="password" name="key" [placeholder]="keyPlaceholder()" [(ngModel)]="openaiApiKey" />
+    </label>
+    <label>
+      Base URL
+      <input name="openaiUrl" [(ngModel)]="openaiBaseUrl" />
+    </label>
+  } @else {
+    <label>
+      Base URL
+      <input name="ollamaUrl" [(ngModel)]="ollamaBaseUrl" />
+    </label>
+  }
+
+  <label>
+    Model
+    @if (models(); as list) {
+      @if (list.length > 0) {
+        <select name="modelSel" [(ngModel)]="model">
+          @for (m of list; track m) {
+            <option [value]="m">{{ m }}</option>
+          }
+        </select>
+      } @else {
+        <input name="modelTxt" placeholder="model name" [(ngModel)]="model" />
+      }
+    } @else {
+      <input name="modelTxt" placeholder="loading models..." [(ngModel)]="model" />
+    }
+  </label>
+  @if (modelsError()) {
+    <p class="muted small">Could not list models ({{ modelsError() }}). Type a model name manually.</p>
+  }
+
+  @if (test().status === 'ok') {
+    <p class="ok">Connected</p>
+  }
+  @if (test(); as t) {
+    @if (t.status === 'failed') {
+      <p class="err">{{ t.error }}</p>
+    }
+  }
+  @if (saveError()) {
+    <p class="err">{{ saveError() }}</p>
+  }
+
+  <footer>
+    <button type="button" class="ghost" (click)="close()">Cancel</button>
+    <button type="button" class="outline" (click)="runTest()" [disabled]="test().status === 'testing'">
+      {{ test().status === 'testing' ? 'Testing...' : 'Test connection' }}
+    </button>
+    <button type="button" (click)="save()">Save</button>
+  </footer>
+</dialog>
