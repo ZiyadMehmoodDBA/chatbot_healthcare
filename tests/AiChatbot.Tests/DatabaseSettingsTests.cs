@@ -21,7 +21,7 @@ public class DatabaseSettingsModelTests
         Assert.Equal("tcp:myserver\\inst", b.DataSource);
         Assert.Equal("Reporting", b.InitialCatalog);
         Assert.True(b.IntegratedSecurity);
-        Assert.Equal(ApplicationIntent.ReadOnly, b.ApplicationIntent);
+        Assert.Equal(ApplicationIntent.ReadWrite, b.ApplicationIntent); // read-only is enforced by permissions; ReadOnly intent breaks availability-group routing
         Assert.Equal(5, b.ConnectTimeout);
         Assert.Equal("", b.Password);
     }

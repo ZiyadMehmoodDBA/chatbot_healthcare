@@ -44,7 +44,7 @@ public sealed record DatabaseSettings(
         return "tcp:" + server;
     }
 
-    // Read-only intent and a short connect timeout; the password only ever lives in this string, in memory.
+    // A short connect timeout; the password only ever lives in this string, in memory.
     public string BuildConnectionString()
     {
         var b = new SqlConnectionStringBuilder
@@ -53,7 +53,6 @@ public sealed record DatabaseSettings(
             InitialCatalog = Database.Trim(),
             ConnectTimeout = 5,
             ApplicationName = "AiChatbot",
-            ApplicationIntent = ApplicationIntent.ReadOnly,
             Encrypt = Encrypt ? SqlConnectionEncryptOption.Mandatory : SqlConnectionEncryptOption.Optional,
             TrustServerCertificate = TrustServerCertificate,
         };
