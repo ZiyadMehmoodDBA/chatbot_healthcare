@@ -1,3 +1,4 @@
+using AiChatbot.Data;
 using AiChatbot.Llm;
 
 public record OpenAiInput(string? ApiKey, string? BaseUrl, string? Model);
@@ -112,6 +113,8 @@ public static class SettingsEndpoints
                 ? await next(ctx)
                 : Results.Json(new { error = "Settings are restricted" }, statusCode: StatusCodes.Status403Forbidden);
         });
+
+        g.MapDatabaseSettings();
 
         // Masked view: the raw key never appears in responses
         g.MapGet("/", (ISettingsRepository repo) => repo.GetMasked());

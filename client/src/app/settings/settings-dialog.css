@@ -97,3 +97,22 @@ footer button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  padding: 0.4rem 0.8rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.tabs button.active {
+  color: inherit;
+  border-bottom-color: var(--primary);
+}

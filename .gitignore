@@ -5,3 +5,4 @@ obj/
 appsettings.*.local.json
 .env
 settings.json
+database-settings.json

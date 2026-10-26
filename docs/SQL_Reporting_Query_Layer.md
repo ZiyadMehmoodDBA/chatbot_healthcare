@@ -60,6 +60,28 @@ The model never writes SQL, never names a table or view, and never sees a connec
 | `Reports:CommandTimeoutSeconds` | `10` | |
 | `Reports:AcknowledgeNoUserAuth` | `false` | `Sql` outside Development refuses to start until this is `true`: the API has no user authentication, so any caller can read any account. |
 
+## Connect from the settings screen
+
+Gear icon, **Database** tab. Pick **SQL Server**, enter server and database, choose Windows or SQL login, then
+**Test connection** before **Save**. Saving applies immediately; no restart.
+
+- **Test connection** checks, in order: the login works, both views exist and have the required columns, and
+  whether the login can change data (a warning, not a failure: use a read-only login).
+- **Messages** are fixed and plain (login failed, database not found, server did not respond, certificate not
+  trusted, view not found, no permission). They never include the password or raw driver text.
+- **Password** is encrypted at rest with ASP.NET Data Protection (DPAPI-backed on Windows) in
+  `database-settings.json` next to the app (git-ignored) and is never sent back to the browser. A saved password is
+  reused only while the server and user name are unchanged. If the keys are lost the password reads as empty and
+  must be re-entered.
+- **Precedence:** saved settings win; with nothing saved, `Reports:Provider` and `ConnectionStrings:Reporting` decide.
+  Delete `database-settings.json` to return to configuration.
+- **Who can use it:** the same protection as the other settings: loopback only, or `X-Admin-Key` when `Admin:ApiKey`
+  is set. Server names get the same checks as provider URLs (no link-local or metadata hosts).
+- **Outside Development** a saved SQL source is blocked until `Reports:AcknowledgeNoUserAuth=true`.
+- For LocalDB or a server without a trusted certificate, untick **Encrypt** (development only).
+
+API: `GET /api/settings/database`, `PUT /api/settings/database`, `POST /api/settings/database/test`.
+
 ## Try it locally
 
 ```powershell

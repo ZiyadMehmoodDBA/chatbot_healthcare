@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using System.Diagnostics;
 using System.Text.Json;
 using AiChatbot.Agent;
@@ -10,7 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IConversationStore, InMemoryConversationStore>();
 builder.Services.AddSafety(builder.Configuration);
-builder.Services.AddReportData(builder.Configuration, builder.Environment);
+builder.Services.AddDataProtection().SetApplicationName("AiChatbot");
+builder.Services.AddReportData(
+    builder.Configuration, builder.Environment, Path.Combine(builder.Environment.ContentRootPath, "database-settings.json"));
 builder.Services.AddSingleton<ReportTools>();
 builder.Services.AddLlm(builder.Configuration, Path.Combine(builder.Environment.ContentRootPath, "settings.json"));
 builder.Services.AddScoped<ChatAgent>();

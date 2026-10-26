@@ -2,6 +2,17 @@
 
 <dialog #dlg>
   <h2>Settings</h2>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" [class.active]="tab() === 'llm'" [attr.aria-selected]="tab() === 'llm'" (click)="tab.set('llm')">AI model</button>
+    <button type="button" role="tab" [class.active]="tab() === 'db'" [attr.aria-selected]="tab() === 'db'" (click)="tab.set('db')">Database</button>
+  </div>
+
+  @if (tab() === 'db') {
+    <app-database-settings />
+    <footer>
+      <button type="button" class="ghost" (click)="close()">Close</button>
+    </footer>
+  } @else {
   @if (activeLlm()) {
     <p class="muted">Active: {{ activeLlm() }}</p>
   }
@@ -69,4 +80,5 @@
     </button>
     <button type="button" (click)="save()">Save</button>
   </footer>
+  }
 </dialog>

@@ -1,5 +1,5 @@
 using AiChatbot.Agent.Tools;
-using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,40 +19,47 @@ public sealed class ReportingOptions
     public int CommandTimeoutSeconds { get; set; } = 10;
 
     // This API has no user authentication yet, so any caller could read any account. Outside Development the SQL
-    // provider therefore refuses to start unless an operator accepts that explicitly.
+    // provider therefore refuses to run unless an operator accepts that explicitly.
     public bool AcknowledgeNoUserAuth { get; set; }
 }
 
 public static class ReportDataServiceCollectionExtensions
 {
-    // Reports:Provider = Synthetic (default) | Sql. Sql needs ConnectionStrings:Reporting, which should be a
-    // read-only login limited to the two views (user-secrets / environment, never a file in the repo).
+    // Data comes from the saved database settings (settings screen) when there are any, otherwise from
+    // configuration: Reports:Provider = Synthetic (default) | Sql, with ConnectionStrings:Reporting (a read-only
+    // login limited to the two views; user-secrets / environment, never a repo file).
+    // databaseSettingsPath enables saving from the settings screen; it needs AddDataProtection() to be registered.
     public static IServiceCollection AddReportData(
-        this IServiceCollection services, IConfiguration config, IHostEnvironment env)
+        this IServiceCollection services, IConfiguration config, IHostEnvironment env, string? databaseSettingsPath = null)
     {
         var options = config.GetSection("Reports").Get<ReportingOptions>() ?? new ReportingOptions();
+        var connectionString = config.GetConnectionString("Reporting");
 
-        if (options.Provider.Equals(ReportingOptions.Synthetic, StringComparison.OrdinalIgnoreCase))
-            return services.AddSingleton<IReportDataReader, SyntheticReportDataReader>();
-
-        if (!options.Provider.Equals(ReportingOptions.Sql, StringComparison.OrdinalIgnoreCase))
+        if (!options.Provider.Equals(ReportingOptions.Synthetic, StringComparison.OrdinalIgnoreCase)
+            && !options.Provider.Equals(ReportingOptions.Sql, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Reports:Provider must be 'Synthetic' or 'Sql'");
 
-        var connectionString = config.GetConnectionString("Reporting");
-        if (string.IsNullOrWhiteSpace(connectionString))
-            throw new InvalidOperationException("Reports:Provider=Sql needs ConnectionStrings:Reporting");
-        if (!env.IsDevelopment() && !options.AcknowledgeNoUserAuth)
-            throw new InvalidOperationException(
-                "Reports:Provider=Sql is refused outside Development: the API has no user authentication. " +
-                "Add authentication, or set Reports:AcknowledgeNoUserAuth=true to accept the risk.");
-
-        // Fail at startup, not on the first question
+        // Configuration that asks for SQL must be complete: fail at startup, not on the first question
         SqlReportDataReader.ValidateViewName(options.PatientSummaryView, nameof(options.PatientSummaryView));
         SqlReportDataReader.ValidateViewName(options.FacilityMetricsView, nameof(options.FacilityMetricsView));
+        if (options.Provider.Equals(ReportingOptions.Sql, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new InvalidOperationException("Reports:Provider=Sql needs ConnectionStrings:Reporting");
+            if (!ReportingGuard.SqlAllowed(env, options))
+                throw new InvalidOperationException(ReportingGuard.Refusal);
+        }
 
-        return services.AddSingleton<IReportDataReader>(sp => new SqlReportDataReader(
-            () => new SqlConnection(connectionString),
-            options,
-            sp.GetRequiredService<ILoggerFactory>().CreateLogger<SqlReportDataReader>()));
+        services.AddSingleton(options);
+        services.AddSingleton<IDatabaseSettingsRepository>(sp => databaseSettingsPath is null
+            ? new NullDatabaseSettingsRepository()
+            : new JsonDatabaseSettingsRepository(
+                databaseSettingsPath, sp.GetRequiredService<IDataProtectionProvider>().CreateProtector("AiChatbot.DatabaseSettings.v1")));
+        services.AddSingleton<IReportingSource>(sp =>
+            new ReportingSource(sp.GetRequiredService<IDatabaseSettingsRepository>(), options, connectionString, env));
+        services.AddSingleton<SwitchableReportDataReader>(sp =>
+            new SwitchableReportDataReader(sp.GetRequiredService<IReportingSource>(), sp.GetRequiredService<ILoggerFactory>()));
+        services.AddSingleton<IReportDataReader>(sp => sp.GetRequiredService<SwitchableReportDataReader>());
+        return services;
     }
 }

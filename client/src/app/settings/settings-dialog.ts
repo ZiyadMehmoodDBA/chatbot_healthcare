@@ -1,5 +1,6 @@
 import { Component, effect, inject, signal, viewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DatabaseSettings } from './database-settings';
 import {
   MaskedSettings,
   ProviderName,
@@ -9,11 +10,11 @@ import {
 
 type TestState = { status: 'idle' | 'testing' | 'ok' } | { status: 'failed'; error: string };
 
-// Gear button + native <dialog>: provider, credentials, model discovery,
-// connection test and save
+// Gear button + native <dialog>. Tab "AI model": provider, credentials, model discovery, connection test
+// and save. Tab "Database": data source and SQL Server connection (see DatabaseSettings).
 @Component({
   selector: 'app-settings-dialog',
-  imports: [FormsModule],
+  imports: [FormsModule, DatabaseSettings],
   templateUrl: './settings-dialog.html',
   styleUrl: './settings-dialog.css',
 })
@@ -29,6 +30,7 @@ export class SettingsDialog {
   protected readonly test = signal<TestState>({ status: 'idle' });
   protected readonly saveError = signal('');
   protected readonly provider = signal<ProviderName>('openai');
+  protected readonly tab = signal<'llm' | 'db'>('llm');
 
   protected openaiApiKey = '';
   protected openaiBaseUrl = 'https://api.openai.com/v1';

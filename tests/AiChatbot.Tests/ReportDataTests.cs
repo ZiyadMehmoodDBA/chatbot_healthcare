@@ -207,13 +207,15 @@ public class ReportDataRegistrationTests
 
     private static IReportDataReader Resolve(IServiceCollection s) => s.BuildServiceProvider().GetRequiredService<IReportDataReader>();
 
-    [Fact]
-    public void Default_is_the_synthetic_reader()
-        => Assert.IsType<SyntheticReportDataReader>(Resolve(Register([])));
+    private static bool UsesSql(IServiceCollection s) => ((SwitchableReportDataReader)Resolve(s)).UsingSql;
 
     [Fact]
-    public void Sql_provider_in_development_registers_the_sql_reader()
-        => Assert.IsType<SqlReportDataReader>(Resolve(Register(new()
+    public void Default_is_the_synthetic_reader()
+        => Assert.False(UsesSql(Register([])));
+
+    [Fact]
+    public void Sql_provider_in_development_switches_the_reader_to_sql()
+        => Assert.True(UsesSql(Register(new()
         {
             ["Reports:Provider"] = "sql",
             ["ConnectionStrings:Reporting"] = "Server=x;Database=y;Trusted_Connection=True",
@@ -247,6 +249,6 @@ public class ReportDataRegistrationTests
         Assert.Throws<InvalidOperationException>(() => Register(settings, "Production"));
 
         settings["Reports:AcknowledgeNoUserAuth"] = "true";
-        Assert.IsType<SqlReportDataReader>(Resolve(Register(settings, "Production")));
+        Assert.True(UsesSql(Register(settings, "Production")));
     }
 }
