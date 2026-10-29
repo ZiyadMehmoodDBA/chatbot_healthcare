@@ -1,7 +1,7 @@
 import { Component, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ChatService } from '../core/chat.service';
+import { ChatService, ReportColumn, ReportResult } from '../core/chat.service';
 import { SettingsDialog } from '../settings/settings-dialog';
 
 interface Message {
@@ -9,6 +9,7 @@ interface Message {
   content: string;
   model?: string;
   durationMs?: number;
+  reports?: ReportResult[];
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -43,6 +44,38 @@ export class Chat {
       this.loading();
       queueMicrotask(() => this.bottom()?.nativeElement.scrollIntoView({ behavior: 'smooth' }));
     });
+  }
+
+  // Cells are formatted from the column type; values arrive as exact numbers or strings from the server
+  protected cell(col: ReportColumn, v: string | number | null): string {
+    if (v === null || v === undefined) return '—';
+    const type = typeof col.type === 'number' ? ['Text', 'Integer', 'Money', 'Percent'][col.type] : col.type;
+    if (typeof v !== 'number') return String(v);
+    if (type === 'Money') return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (type === 'Integer') return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    if (type === 'Percent') return `${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
+    return String(v);
+  }
+
+  protected isNumeric(col: ReportColumn): boolean {
+    return col.type !== 'Text' && col.type !== 0;
+  }
+
+  protected readonly exportError = signal('');
+
+  protected async download(report: ReportResult) {
+    this.exportError.set('');
+    try {
+      const blob = await this.chat.exportCsv(report.evidence);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${report.evidence.reportId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      this.exportError.set(err instanceof Error ? err.message : 'Export failed.');
+    }
   }
 
   protected stop() {
@@ -100,6 +133,10 @@ export class Chat {
           bubbleShown = true;
         }
         if (ev.type === 'delta') pending += ev.text;
+        else if (ev.type === 'report') {
+          this.loading.set(false);
+          patchLast((m) => ({ ...m, reports: [...(m.reports ?? []), ev.report] }));
+        }
         else if (ev.type === 'done') info = { model: ev.model, durationMs: ev.durationMs };
         else this.error.set(ev.message); // mid-stream failure: keep partial text
       }

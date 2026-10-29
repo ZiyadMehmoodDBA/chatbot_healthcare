@@ -71,13 +71,27 @@
 .row.user {
   justify-content: flex-end;
 }
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 100%;
+  min-width: 0;
+}
+.row.user .stack {
+  align-items: flex-end;
+}
 .bubble {
+  align-self: flex-start;
   max-width: 80%;
   padding: 0.5rem 0.85rem;
   border-radius: 1rem;
   background: var(--bubble-bot);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.row.user .bubble {
+  align-self: flex-end;
 }
 .bubble.user {
   background: var(--primary);
@@ -161,4 +175,82 @@ textarea:focus {
 .input button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.report {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+.report-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.chip {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.chip.draft {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.link {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th {
+  font-weight: 600;
+  color: var(--muted);
+}
+th.num,
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+td.empty {
+  text-align: center;
+  color: var(--muted);
+  white-space: normal;
+}
+.evidence {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.caveats {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.caveats ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
 }

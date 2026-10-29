@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\AiChatbot.Safety\AiChatbot.Safety.csproj" />
     <ProjectReference Include="..\..\src\AiChatbot.Llm\AiChatbot.Llm.csproj" />
     <ProjectReference Include="..\..\src\AiChatbot.Data\AiChatbot.Data.csproj" />
+    <ProjectReference Include="..\..\src\AiChatbot.Reporting\AiChatbot.Reporting.csproj" />
   </ItemGroup>
 
 </Project>

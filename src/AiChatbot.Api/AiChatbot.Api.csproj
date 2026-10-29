@@ -4,6 +4,7 @@
     <ProjectReference Include="..\AiChatbot.Agent\AiChatbot.Agent.csproj" />
     <ProjectReference Include="..\AiChatbot.Llm\AiChatbot.Llm.csproj" />
     <ProjectReference Include="..\AiChatbot.Data\AiChatbot.Data.csproj" />
+    <ProjectReference Include="..\AiChatbot.Reporting\AiChatbot.Reporting.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

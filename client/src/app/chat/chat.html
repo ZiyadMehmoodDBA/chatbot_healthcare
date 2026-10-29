@@ -13,13 +13,66 @@
   <div class="transcript">
     @for (m of messages(); track $index) {
       <div class="row" [class.user]="m.role === 'user'">
-        <div class="bubble" [class.user]="m.role === 'user'">
-          <span class="text">{{ m.content }}</span>
-          @if (m.model) {
-            <span class="badge">{{ m.model }} · {{ (m.durationMs ?? 0) / 1000 | number: '1.1-1' }}s</span>
+        <div class="stack">
+          @if (m.content || !m.reports?.length) {
+            <div class="bubble" [class.user]="m.role === 'user'">
+              <span class="text">{{ m.content }}</span>
+              @if (m.model) {
+                <span class="badge">{{ m.model }} · {{ (m.durationMs ?? 0) / 1000 | number: '1.1-1' }}s</span>
+              }
+            </div>
+          }
+          @for (r of m.reports ?? []; track $index) {
+            <article class="report" [attr.aria-label]="r.evidence.reportId">
+              <header class="report-head">
+                <strong>{{ r.evidence.period }}</strong>
+                <span class="chip" [class.draft]="r.evidence.approvalStatus === 'Draft'">{{ r.evidence.approvalStatus }}</span>
+                <button type="button" class="link" (click)="download(r)">Download CSV</button>
+              </header>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      @for (c of r.columns; track c.name) {
+                        <th scope="col" [class.num]="isNumeric(c)">{{ c.label }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of r.rows; track $index) {
+                      <tr>
+                        @for (c of r.columns; track c.name; let i = $index) {
+                          <td [class.num]="isNumeric(c)">{{ cell(c, row[i]) }}</td>
+                        }
+                      </tr>
+                    } @empty {
+                      <tr><td [attr.colspan]="r.columns.length" class="empty">No matching records in this period.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <p class="evidence">
+                Date basis: {{ r.evidence.dateBasis }} · {{ r.evidence.rowCount }}
+                {{ r.evidence.rowCount === 1 ? 'row' : 'rows' }}{{ r.evidence.truncated ? ' (truncated)' : '' }} ·
+                Data through {{ r.evidence.dataThrough ?? 'unknown' }} · Metric v{{ r.evidence.metricVersion }}
+              </p>
+              @if (r.evidence.caveats.length) {
+                <details class="caveats">
+                  <summary>Notes and limits ({{ r.evidence.caveats.length }})</summary>
+                  <ul>
+                    @for (c of r.evidence.caveats; track $index) {
+                      <li>{{ c }}</li>
+                    }
+                  </ul>
+                </details>
+              }
+            </article>
           }
         </div>
       </div>
+    }
+    @if (exportError()) {
+      <p class="error">{{ exportError() }}</p>
     }
     @if (loading()) {
       <div class="row">

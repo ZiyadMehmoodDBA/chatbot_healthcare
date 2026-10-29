@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiChatbot.Safety\AiChatbot.Safety.csproj" />
+    <ProjectReference Include="..\AiChatbot.Reporting\AiChatbot.Reporting.csproj" />
   </ItemGroup>
 
 </Project>
