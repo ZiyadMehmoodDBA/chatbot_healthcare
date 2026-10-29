@@ -1,107 +1,269 @@
-# SQL Reporting Query Layer
+# SQL Reporting Layer --- Query Perspective, Requirements, and Output Location
 
-How a question becomes a SQL query, and the rules around it. Pair with [Data_Dictionary.md](Data_Dictionary.md).
+## 1. Purpose
 
-## Flow
+This document defines a reporting layer between the SQL Server Data
+Dictionary and report execution. Each report must document:
 
-```
-User question
-  -> Safe-to-share layer   tokenize identifiers ({ACCT_1}), screen text bound for an external model
-  -> LLM                   chooses a tool and passes only a token / facility name
-  -> ReportTools           resolves the token server-side, calls IReportDataReader
-  -> SqlReportDataReader   one fixed SELECT against one reporting view, parameters bound
-  -> PolicyGate            decides whether the model sees values or only {PLACEHOLDERS}
-  -> Reply                 the server fills placeholders and real account numbers
-```
+1.  **Query perspective** --- the business question the report answers.
+2.  **What is needed** --- date range, filters, measures, grouping, and
+    business rules.
+3.  **Where to find the data** --- source table(s) and verified columns.
+4.  **Where to find the output** --- execution destination, export
+    format, and configured save location.
+5.  **Validation** --- reconciliation checks and assumptions that must
+    be confirmed.
 
-The model never writes SQL, never names a table or view, and never sees a connection string.
+The Data Dictionary describes table structures, but it does not by
+itself confirm the business meaning, row grain, joins, or financial
+calculation rules. Validate these before production use.
 
-## Report specifications
+## 2. Suggested project structure
 
-### Patient summary (`GetPatientSummary`)
-
-- **Question answered:** how many admissions, when was the last visit, and how many incidents are open for one account.
-- **Source:** `reporting.vw_PatientSummary`.
-- **Query:** `SELECT TOP (1) Admissions, LastVisitDate, OpenIncidents FROM <view> WHERE AccountNumber = @account`
-- **Parameters:** `@account bigint`, resolved from a token the user created by writing a labelled number.
-- **No row:** returned as "not found", the same for a missing account and an invalid one.
-- **Output:** answer text, with figures inserted by the server.
-- **Validation to confirm with the data owner:** grain is one row per account; "open incident" definition;
-  `LastVisitDate` meaning (admission date or discharge date).
-
-### Facility metrics (`GetFacilityMetrics`)
-
-- **Question answered:** readmission rate, average length of stay and incident count for one facility.
-- **Source:** `reporting.vw_FacilityMetrics`.
-- **Query:** `SELECT TOP (1) ReadmissionRatePct, AvgLengthOfStayDays, IncidentCount, AsOfDate FROM <view> WHERE Facility = @facility`
-- **Parameters:** `@facility nvarchar(100)`, trimmed, at most 100 characters.
-- **Matching:** follows the column collation (case-insensitive on the default SQL Server collation).
-- **Validation to confirm:** the rate and stay definitions, the period covered, and that `AsOfDate` is a load date.
-
-## Rules
-
-| Rule | How it is enforced |
-|---|---|
-| Read only | The reader issues `SELECT` only. Use a login with `SELECT` on the two views and nothing else. |
-| No SQL from the model | Query text is constant; only validated view names are interpolated (`^[A-Za-z_]\w*(\.[A-Za-z_]\w*){0,2}$`), checked at startup. |
-| Bound parameters | Account and facility are always parameters. Injection strings return "not found" (tested). |
-| Failure is not "no data" | A database error becomes `unavailable` to the model, never `not_found`. The log holds the exception type only. |
-| Bounded | 10 second command timeout (`Reports:CommandTimeoutSeconds`), one row, 4 tool calls per question. |
-| No identifiers in logs | Account numbers, facility names and result values are not logged. |
-
-## Configuration
-
-| Key | Default | Notes |
-|---|---|---|
-| `Reports:Provider` | `Synthetic` | `Synthetic` (demo data) or `Sql`. |
-| `ConnectionStrings:Reporting` | none | Required for `Sql`. User-secrets or environment, never a repo file. |
-| `Reports:PatientSummaryView` | `reporting.vw_PatientSummary` | |
-| `Reports:FacilityMetricsView` | `reporting.vw_FacilityMetrics` | |
-| `Reports:CommandTimeoutSeconds` | `10` | |
-| `Reports:AcknowledgeNoUserAuth` | `false` | `Sql` outside Development refuses to start until this is `true`: the API has no user authentication, so any caller can read any account. |
-
-## Connect from the settings screen
-
-Gear icon, **Database** tab. Pick **SQL Server**, enter server and database, choose Windows or SQL login, then
-**Test connection** before **Save**. Saving applies immediately; no restart.
-
-- **Test connection** checks, in order: the login works, both views exist and have the required columns, and
-  whether the login can change data (a warning, not a failure: use a read-only login).
-- **Messages** are fixed and plain (login failed, database not found, server did not respond, certificate not
-  trusted, view not found, no permission). They never include the password or raw driver text.
-- **Password** is encrypted at rest with ASP.NET Data Protection (DPAPI-backed on Windows) in
-  `database-settings.json` next to the app (git-ignored) and is never sent back to the browser. A saved password is
-  reused only while the server and user name are unchanged. If the keys are lost the password reads as empty and
-  must be re-entered.
-- **Precedence:** saved settings win; with nothing saved, `Reports:Provider` and `ConnectionStrings:Reporting` decide.
-  Delete `database-settings.json` to return to configuration.
-- **Who can use it:** the same protection as the other settings: loopback only, or `X-Admin-Key` when `Admin:ApiKey`
-  is set. Server names get the same checks as provider URLs (no link-local or metadata hosts).
-- **Outside Development** a saved SQL source is blocked until `Reports:AcknowledgeNoUserAuth=true`.
-- For LocalDB or a server without a trusted certificate, untick **Encrypt** (development only).
-
-API: `GET /api/settings/database`, `PUT /api/settings/database`, `POST /api/settings/database/test`.
-
-## Try it locally
-
-```powershell
-sqlcmd -S "(localdb)\MSSQLLocalDB" -i scripts\dev-reporting-db.sql
-cd src\AiChatbot.Api
-dotnet user-secrets set "Reports:Provider" "Sql"
-dotnet user-secrets set "ConnectionStrings:Reporting" "Server=(localdb)\MSSQLLocalDB;Database=AiChatbotReporting;Trusted_Connection=True;Encrypt=False"
-dotnet run
+``` text
+reporting/
+├── README.md
+├── data-dictionary/
+│   └── SQL_Server_Data_Dictionary.md
+├── report-specs/
+│   ├── insurance-vs-patient-payments.md
+│   ├── payments-by-payer.md
+│   ├── denial-analysis.md
+│   ├── ar-aging.md
+│   └── ...
+├── sql/
+│   ├── insurance-vs-patient-payments.sql
+│   ├── payments-by-payer.sql
+│   └── ...
+└── output/
+    ├── csv/
+    ├── excel/
+    └── pdf/
 ```
 
-Sample accounts: `12345`, `20456`, `30001`, `40002`, `50003`. Facilities: `north`, `south`, `east`, `west`.
-Switch back with `dotnet user-secrets set "Reports:Provider" "Synthetic"`.
+**Output-path note:** This is a proposed project layout, not a claim
+that these folders already exist. Choose and configure the actual output
+directory for your environment. SQL Server Management Studio (SSMS)
+displays query results in its Results grid unless the user exports them
+or a reporting job writes them to a configured destination.
 
-Integration tests: set `AICHATBOT_TEST_SQL` to the same connection string and run `dotnet test`; without it those
-tests are skipped.
+## 3. Report specification template
 
-## Before real data
+Use this template for every report.
 
-1. Data owner writes the two views over real tables and confirms the definitions above.
-2. A read-only login limited to those views; connection over TLS (drop `Encrypt=False`).
-3. User authentication and per-user scoping (which accounts and facilities a user may see). Until then the SQL
-   provider is blocked outside Development.
-4. Written data-policy approval, and a business associate agreement if patient data may reach an external model.
+### Report identity
+
+-   **Report name:**
+-   **Business owner:**
+-   **Purpose / question answered:**
+-   **Refresh frequency:**
+-   **SQL file:**
+-   **Output format:** SSMS grid / CSV / Excel / PDF / dashboard
+-   **Output location:** Specify the actual configured folder, share,
+    report server, or dashboard.
+
+### Query perspective
+
+-   **Primary measure(s):**
+-   **Group by:** (payer, practice, provider, date, claim, etc.)
+-   **Date basis:** (posting date, deposit date, date of service,
+    submission date, etc.)
+-   **Filters:** (date range, practice, payer, provider, status)
+-   **Required parameters:**
+-   **Inclusion / exclusion rules:**
+
+### Data requirements
+
+-   **Source table(s):**
+-   **Required columns:**
+-   **Join keys and join type:** Confirm against schema and business
+    rules.
+-   **Expected row grain:** What one output row represents.
+-   **Calculation rules:** Include null handling, signs, rounding, and
+    duplicate handling.
+-   **Sensitive data:** Exclude patient-identifying fields unless
+    explicitly required and authorized.
+
+### Validation and delivery
+
+-   **Reconciliation total(s):**
+-   **Sample records checked:**
+-   **Known caveats:**
+-   **Output filename convention:**
+-   **Delivery owner / audience:**
+-   **Approval status:** Draft / Validated / Approved for production
+
+------------------------------------------------------------------------
+
+## 4. Initial report catalogue
+
+These are report perspectives to implement. A source table and columns
+are listed only where they are present in the available Data Dictionary
+context; other mappings must be verified before implementation.
+
+  -----------------------------------------------------------------------------------------------------------------------
+  Report           Query perspective    What is needed            Data source / fields to verify        Output
+  ---------------- -------------------- ------------------------- ------------------------------------- -----------------
+  Insurance        Compare insurance    Start/end date; date      `dbo.FACT_CC_Claims_Payment_Count`:   SSMS grid
+  vs. Patient      and patient payment  basis; optional practice, `Posting_Date`, `Payer_Id`,           initially; export
+  Payments         amounts and their    payer, provider filters;  `Payer_Name`, `InsurancePayments`,    to CSV/Excel
+                   share of combined    payment definitions       `PatientPayments`, `Claim_No`,        after validation
+                   payments                                       `Practice_Code`, `Rendering_Provider` 
+
+  Payments by      Rank payers by       Date range; posting       `dbo.FACT_CC_Claims_Payment_Count`:   SSMS grid;
+  Payer            payment totals       vs. deposit date; payer   `Payer_Id`, `Payer_Name`,             CSV/Excel
+                                        grouping; duplicate/grain `Posting_Date`, `Deposit_Date`,       
+                                        rules                     `InsurancePayments`,                  
+                                                                  `PatientPayments`, `Total_Payment`    
+
+  Denial Analysis  Identify             Date range;               Confirm the rejection/denial table    SSMS grid;
+                   denial/rejection     denial/rejection          and its actual date, status, reason,  CSV/Excel
+                   volume and reasons   definition; status/reason payer, practice, and claim columns in 
+                   by payer, practice,  filters; distinct-claim   the Data Dictionary                   
+                   and time             rule                                                            
+
+  A/R Aging        Show outstanding     Aging/as-of date; bucket  Locate and validate the table/view    SSMS grid;
+                   insurance balances   boundaries;               containing open insurance balance,    Excel/PDF
+                   by aging bucket      insurance-only rule;      payer, claim, and aging/date fields   
+                                        balance definition;                                             
+                                        payer/practice/provider                                         
+                                        filters                                                         
+
+  Top Payers by    Rank payers by open  As-of date; payer         Verify the source for outstanding     SSMS grid; Excel
+  Outstanding A/R  insurance balance    grouping; open-balance    insurance balance and payer           
+                                        definition; top-N         attributes                            
+                                        parameter                                                       
+
+  Claims           Measure claims       Date range; submission    Verify claims/submission source and   SSMS grid;
+  Submission       submitted and        status; resubmission      actual submission date/status columns CSV/Excel
+  Performance      submission outcomes  handling; claim-level                                           
+                   over time            grain                                                           
+
+  Days to Bill     Measure elapsed time Date range; start/end     Verify the relevant claims or         SSMS grid; Excel
+                   between date of      event definitions;        `FactDaysToBill` source and exact     
+                   service and          negative/null-date        columns                               
+                   billing/submission   handling                                                        
+
+  Claim Volume by  Count claims by      Date range;               Verify source containing claim        SSMS grid;
+  Practice and     practice/provider    practice/provider         number, practice, provider, and the   dashboard/Excel
+  Provider         and period           filters; distinct-claim   chosen date                           
+                                        rule                                                            
+
+  CPT Procedure    Compare procedure    Date range; procedure     Verify source containing procedure    SSMS grid; Excel
+  Performance      volume, charges, and code; charge/payment      code, charges, and payment measures   
+                   payments             definitions;                                                    
+                                        claim/procedure grain                                           
+
+  Claim Interest   Report interest      Date range; definition of Locate and verify the actual interest SSMS grid; Excel
+  Report           amounts associated   interest; posting and     source and amount/date/claim columns  
+                   with claims          claim relationship                                              
+
+  Facility and     Compare volume or    Date range; facility and  Verify facility/location and sales    SSMS grid;
+  Sales            financial measures   representative mapping;   representative sources, join keys,    Excel/dashboard
+  Representative   by facility and      selected KPI definitions  and effective dates                   
+  Performance      sales representative                                                                 
+  -----------------------------------------------------------------------------------------------------------------------
+
+## 5. Detailed specification --- Insurance vs. Patient Payments
+
+### Business question
+
+For the selected posting period, how much was collected from insurance
+versus patients, and what percentage did each contribute?
+
+### Required inputs
+
+-   `@StartDate` --- inclusive start date.
+-   `@EndDate` --- inclusive end date.
+-   Optional filters: `Practice_Code`, `Payer_Id`, and
+    `Rendering_Provider`.
+-   Confirm whether reporting is by **posting date** or **deposit
+    date**.
+
+### Source
+
+`dbo.FACT_CC_Claims_Payment_Count`
+
+Relevant columns: - `Posting_Date`, `Deposit_Date` -
+`InsurancePayments`, `PatientPayments` - `Payer_Id`, `Payer_Name` -
+`Claim_No`, `Practice_Code` - `Rendering_Provider`
+
+The table also contains `InsuranceAmountPaid` and `PatientAmountPaid`.
+Confirm which pair is authoritative before production reporting.
+
+### Output columns
+
+-   Payer ID and payer name, if grouped by payer
+-   Unique claim count and source record count
+-   Insurance payments
+-   Patient payments
+-   Combined payments
+-   Payment difference (insurance minus patient)
+-   Insurance payment percentage
+-   Patient payment percentage
+
+### Calculation rules
+
+-   Use a half-open date filter:
+    `Posting_Date >= @StartDate AND Posting_Date < DATEADD(DAY, 1, @EndDate)`.
+-   Treat null payment values as zero only if approved by the report
+    owner.
+-   Calculate percentages using `NULLIF(Combined_Payments, 0)` to avoid
+    division by zero.
+-   Do not assume patient payments belong to the insurance payer on the
+    same row. If that relationship is not meaningful, produce an overall
+    comparison or group by `Responsible_Party` instead, after validating
+    its values.
+-   Do not sum both `Total_Payment` and the component payment fields
+    into the same total without confirming their definitions.
+-   Validate the table grain to avoid duplicated payment totals.
+
+### Output destination
+
+-   **Initial development:** SSMS Results grid.
+-   **File export:**
+    `output/csv/insurance-vs-patient-payments_YYYYMMDD.csv` or
+    `output/excel/insurance-vs-patient-payments_YYYYMMDD.xlsx`.
+-   These are suggested names and folders; configure the actual paths
+    before implementation.
+-   **Production delivery:** Specify a report server, shared folder,
+    dashboard, or scheduled export destination in the report
+    configuration. Do not assume an output file is created automatically
+    by a SELECT query.
+
+### Acceptance checks
+
+1.  Confirm payment totals against a trusted source for a small sample
+    period.
+2.  Compare `InsurancePayments + PatientPayments` with `Total_Payment`
+    and document any difference.
+3.  Check for duplicate claim/procedure/payment rows.
+4.  Verify null and negative payment handling.
+5.  Confirm date basis and payer attribution with the business owner.
+
+## 6. Output destination standards
+
+For every report, record one explicit destination:
+
+-   **Interactive:** SSMS Results grid (manual execution).
+-   **File-based:** configured CSV, Excel, or PDF path.
+-   **Scheduled:** SQL Server Agent job or an approved orchestration
+    service writes the output to a configured location.
+-   **Dashboard:** a named reporting dataset/dashboard with a documented
+    refresh schedule.
+
+Do not put patient names, account numbers, or other patient-identifying
+information into output files unless necessary, authorized, and
+protected according to organizational policy.
+
+## 7. Implementation sequence
+
+1.  Confirm the Data Dictionary and identify the exact source
+    table/view.
+2.  Create a report-spec Markdown file from the template.
+3.  Confirm source grain, joins, date basis, and measure definitions.
+4.  Write the parameterized SQL file.
+5.  Test with a limited date range and known records.
+6.  Reconcile totals and document caveats.
+7.  Agree on the output destination and file naming.
+8.  Mark the report validated before scheduling or distributing it.

@@ -45,7 +45,9 @@ Limits: the screen is a mitigation, not de-identification (single first names, s
 
 `POST /api/chat` body `{ "prompt": "...", "conversationId": "<guid>" }`
 Response `application/x-ndjson`: `{"delta":"..."}` lines, then `{"done":true,"model":"...","durationMs":123}`.
-Errors mid-stream: `{"error":"..."}`. Same shape as the old Node server.
+Report tables arrive as `{"report":{columns,rows,evidence}}` lines before or between deltas (evidence: period, date basis, draft status, data freshness, caveats). Errors mid-stream: `{"error":"..."}`. `401` without a signed-in actor.
+
+Reports (no model involved): `GET /api/reports`, `POST /api/reports/{id}/run`, `POST /api/reports/{id}/export` (CSV). Dev actor and database: see `Auth:DevActor` and `ConnectionStrings:RcmReports` (user-secrets).
 
 ## Test
 
