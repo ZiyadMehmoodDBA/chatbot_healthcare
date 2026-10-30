@@ -67,6 +67,8 @@ public sealed class ChatAgent(
         - Do not give medical, legal or coding advice.
         """;
 
+    private static readonly string[] UsedFilterKeys = ["startDate", "endDate", "asOfDate", "topN"];
+
     private static string PlanLine(CoordinatorPlan? plan) => plan?.Kind switch
     {
         PlanKind.Single => $"Plan: this question is about {plan.Modules[0].Description}. Use only the tools offered.",
@@ -198,8 +200,11 @@ public sealed class ChatAgent(
             else
             {
                 (result, report) = await rcm!.ExecuteAsync(rcmTurn, call.Name, call.Arguments, ct);
-                // Dates the model chose from the question are likewise known values it may restate
-                if (call.Arguments is not null) shown.AddRange(call.Arguments.Values.Select(v => v?.ToString() ?? ""));
+                // The dates and topN the report actually used are known values the model may restate. Raw model
+                // arguments are never added: an ignored extra argument could otherwise smuggle in any number.
+                if (report is not null)
+                    foreach (var key in UsedFilterKeys)
+                        if (report.Evidence.Filters.TryGetValue(key, out var used)) shown.Add(used);
             }
             if (report is not null) rcmTurn.Reports.Add(report);
             rcmTurn.Trace.Add(new TraceStep("tool", call.Name,

@@ -156,6 +156,20 @@ public class RcmChatTests
     }
 
     [Fact]
+    public async Task A_number_smuggled_in_an_ignored_tool_argument_is_still_treated_as_invented()
+    {
+        var client = new ScriptedClient(
+            Call(RcmReportTools.PaymentsByPayer, [.. May, ("bonus", "999999")]),
+            Text("Payments hit 999999, led by {PAYER_TOP_NAME} with {PAYER_TOP_COMBINED}."));
+        var agent = Make(client, ProviderKind.External, out _, out _);
+
+        var text = await Run(agent, Guid.NewGuid(), "top payers over the last few months", new ChatTurn(Manager, "c"));
+
+        Assert.DoesNotContain("999999", text);
+        Assert.Contains("120.00", text);
+    }
+
+    [Fact]
     public async Task Missing_dates_are_reported_to_the_model_so_it_can_ask_and_no_report_is_produced()
     {
         var client = new ScriptedClient(Call(RcmReportTools.InsuranceVsPatient), Text("Which period?"));
