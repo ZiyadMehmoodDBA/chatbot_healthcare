@@ -23,6 +23,7 @@ builder.Services.AddReporting(builder.Configuration,
     sp => builder.Configuration.GetConnectionString("RcmAudit") is { Length: > 0 } cs
         ? () => new Microsoft.Data.SqlClient.SqlConnection(cs) : null);
 builder.Services.AddHostedService<AuditWriterService>();
+builder.Services.AddHealthChecks().AddCheck<AuditHealthCheck>("audit");
 var authMode = builder.AddRcmAuth();
 builder.Services.AddLlm(builder.Configuration, Path.Combine(builder.Environment.ContentRootPath, "settings.json"));
 builder.Services.AddScoped<ChatAgent>();
@@ -35,6 +36,16 @@ app.MapSettingsEndpoints();
 app.MapReportEndpoints(authMode);
 
 app.MapGet("/api/health", () => new { message = "Welcome to Chat Bot" });
+// Status word only, no details. Not part of /api/health so operators choose whether audit trouble pulls the service out.
+app.MapHealthChecks("/api/health/audit", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResultStatusCodes =
+    {
+        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy] = 200,
+        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded] = 200,
+        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy] = 503,
+    },
+});
 
 var chatEndpoint = app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx, ILogger<Program> log) =>
 {
@@ -130,4 +141,23 @@ public sealed class AuditWriterService(IReportAudit audit) : BackgroundService
 {
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
         => audit is DurableReportAudit d ? d.RunAsync(stoppingToken) : Task.CompletedTask;
+}
+
+// Healthy: audit writes work. Degraded: some entries were lost earlier. Unhealthy: the start-up probe or the latest write failed.
+// Log-only mode (no ConnectionStrings:RcmAudit) is reported as degraded so it is visible, never silent.
+public sealed class AuditHealthCheck(IReportAudit audit) : Microsoft.Extensions.Diagnostics.HealthChecks.IHealthCheck
+{
+    public Task<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult> CheckHealthAsync(
+        Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext context, CancellationToken ct = default)
+    {
+        if (audit is not DurableReportAudit d)
+            return Task.FromResult(Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("audit is log-only"));
+        var h = d.Health;
+        return Task.FromResult(h.State switch
+        {
+            AuditHealthState.Healthy => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("audit ok"),
+            AuditHealthState.Degraded => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("audit entries were lost earlier"),
+            _ => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("audit writes are failing"),
+        });
+    }
 }

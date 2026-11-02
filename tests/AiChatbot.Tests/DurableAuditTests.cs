@@ -17,12 +17,14 @@ public class DurableAuditTests
         public int FailTimes { get; set; }
         public int Batches { get; private set; }
 
-        public Task WriteAsync(IReadOnlyList<ReportAuditEntry> batch, CancellationToken ct)
+        public int RejectPerBatch { get; set; }
+
+        public Task<int> WriteAsync(IReadOnlyList<ReportAuditEntry> batch, CancellationToken ct)
         {
             Batches++;
             if (FailTimes-- > 0) throw new InvalidOperationException("db down");
             lock (Written) Written.AddRange(batch);
-            return Task.CompletedTask;
+            return Task.FromResult(Math.Min(RejectPerBatch, batch.Count));
         }
     }
 
@@ -47,7 +49,7 @@ public class DurableAuditTests
 
         stop.Cancel();
         await run;
-        Assert.Equal(Enumerable.Range(0, 25).Select(i => $"c{i}"), sink.Written.Select(e => e.CorrelationId));
+        Assert.Equal(Enumerable.Range(0, 25).Select(i => $"c{i}"), sink.Written.Where(e => e.Action != "startup").Select(e => e.CorrelationId));
         Assert.Equal(0, audit.Dropped);
     }
 
@@ -55,10 +57,12 @@ public class DurableAuditTests
     public async Task A_failing_sink_never_throws_into_the_report_and_the_entries_stay_in_the_log()
     {
         var log = new MemLog();
-        var sink = new MemSink { FailTimes = 1 };
+        var sink = new MemSink();
         using var audit = Make(log, sink);
         using var stop = new CancellationTokenSource();
         var run = audit.RunAsync(stop.Token);
+        await Task.Delay(100); // probe done
+        sink.FailTimes = 1;
 
         audit.Record(Entry(1)); // must not throw
         await Task.Delay(100);
@@ -94,7 +98,83 @@ public class DurableAuditTests
 
         await audit.RunAsync(stop.Token);
 
-        Assert.Equal(7, sink.Written.Count);
+        Assert.Equal(7, sink.Written.Count(e => e.Action != "startup"));
+    }
+
+    [Fact]
+    public async Task Startup_probe_writes_one_row_and_marks_the_audit_healthy()
+    {
+        var sink = new MemSink();
+        using var audit = Make(new MemLog(), sink);
+        Assert.Equal(AuditHealthState.Unhealthy, audit.Health.State); // nothing proven yet
+        using var stop = new CancellationTokenSource();
+        var run = audit.RunAsync(stop.Token);
+        await Task.Delay(100);
+
+        Assert.Equal(AuditHealthState.Healthy, audit.Health.State);
+        Assert.NotNull(audit.Health.LastWriteUtc);
+        Assert.Equal("startup", Assert.Single(sink.Written).Action);
+        stop.Cancel();
+        await run;
+    }
+
+    [Fact]
+    public async Task A_failing_probe_is_unhealthy_until_a_later_write_succeeds()
+    {
+        var sink = new MemSink { FailTimes = 1 }; // the probe fails
+        using var audit = Make(new MemLog(), sink);
+        using var stop = new CancellationTokenSource();
+        var run = audit.RunAsync(stop.Token);
+        await Task.Delay(100);
+        Assert.Equal(AuditHealthState.Unhealthy, audit.Health.State);
+        Assert.Equal(1, audit.Health.ConsecutiveFailures);
+
+        audit.Record(Entry(1));
+        await Task.Delay(100);
+        Assert.Equal(AuditHealthState.Healthy, audit.Health.State);
+        stop.Cancel();
+        await run;
+    }
+
+    [Fact]
+    public async Task Lost_entries_make_it_degraded_not_healthy_and_a_failing_write_makes_it_unhealthy()
+    {
+        var sink = new MemSink();
+        using var audit = Make(new MemLog(), sink);
+        using var stop = new CancellationTokenSource();
+        var run = audit.RunAsync(stop.Token);
+        await Task.Delay(100);
+
+        sink.FailTimes = 1;
+        audit.Record(Entry(1));
+        await Task.Delay(100);
+        Assert.Equal(AuditHealthState.Unhealthy, audit.Health.State);
+        Assert.Equal(1, audit.Health.Dropped);
+
+        audit.Record(Entry(2));
+        await Task.Delay(100);
+        Assert.Equal(AuditHealthState.Degraded, audit.Health.State); // writing again, but one entry was lost
+        stop.Cancel();
+        await run;
+    }
+
+    [Fact]
+    public async Task Rejected_rows_count_as_lost_but_do_not_make_the_audit_unhealthy()
+    {
+        var sink = new MemSink();
+        using var audit = Make(new MemLog(), sink);
+        using var stop = new CancellationTokenSource();
+        var run = audit.RunAsync(stop.Token);
+        await Task.Delay(100);
+
+        sink.RejectPerBatch = 1;
+        audit.Record(Entry(1));
+        await Task.Delay(100);
+
+        Assert.Equal(1, audit.Health.Dropped);
+        Assert.Equal(AuditHealthState.Degraded, audit.Health.State);
+        stop.Cancel();
+        await run;
     }
 
     private static string AuditScript()

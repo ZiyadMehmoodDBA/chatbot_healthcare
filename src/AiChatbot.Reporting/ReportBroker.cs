@@ -142,7 +142,7 @@ public sealed class ReportBroker(
         }
         catch (ReportException ex)
         {
-            Record(action, actor, def?.Id ?? reportId, filters, ex.Kind.ToString(), 0, started, correlationId);
+            Record(action, actor, def?.Id ?? ReportCatalog.AuditId(reportId), filters, ex.Kind.ToString(), 0, started, correlationId);
             throw;
         }
     }

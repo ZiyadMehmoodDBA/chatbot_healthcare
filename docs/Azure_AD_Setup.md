@@ -56,6 +56,13 @@ INSERT chatbot.UserPractice (UserId, PracticeCode) VALUES (SCOPE_IDENTITY(), 211
 Roles: `BillingStaff`, `RcmManager`, `Analyst`. Revoke: `UPDATE chatbot.UserAccess SET IsActive = 0 WHERE ObjectId = '...'`
 (takes effect within `Auth:AccessCacheSeconds`).
 
+## Audit health
+
+`GET /api/health/audit` returns a status word only: `Healthy` (200), `Degraded` (200) or `Unhealthy` (503).
+At start-up the app writes one `startup` row to `chatbot.AuditLog`; if that or any later write fails the status is
+`Unhealthy` until a write succeeds. `Degraded` means entries were lost earlier, or no `RcmAudit` connection is set
+(log-only). Point your monitor at it. It is separate from `/api/health` so you decide whether to pull the service out.
+
 ## Behaviour
 
 - Token checks: signature, tenant issuer, audience, lifetime, scope, and `tid` equals the configured tenant.

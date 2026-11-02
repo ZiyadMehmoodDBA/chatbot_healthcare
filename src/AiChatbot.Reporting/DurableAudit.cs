@@ -5,9 +5,14 @@ using Microsoft.Extensions.Logging;
 
 namespace AiChatbot.Reporting;
 
+public enum AuditHealthState { Healthy, Degraded, Unhealthy }
+
+public sealed record AuditHealth(AuditHealthState State, int ConsecutiveFailures, long Dropped, DateTime? LastWriteUtc);
+
 public interface IAuditSink
 {
-    Task WriteAsync(IReadOnlyList<ReportAuditEntry> batch, CancellationToken ct);
+    // Returns how many rows were rejected. Throws only when nothing could be written (connection or login problem).
+    Task<int> WriteAsync(IReadOnlyList<ReportAuditEntry> batch, CancellationToken ct);
 }
 
 // Inserts audit rows into chatbot.AuditLog. Needs INSERT on that table only (a login separate from the read-only report login).
@@ -17,33 +22,48 @@ public sealed class SqlAuditSink(Func<DbConnection> open, int timeoutSeconds = 1
         "INSERT chatbot.AuditLog (TimestampUtc, CorrelationId, Action, UserId, Role, ReportId, Filters, Outcome, ResultRows, DurationMs) " +
         "VALUES (@ts, @corr, @action, @user, @role, @report, @filters, @outcome, @rows, @ms)";
 
-    public async Task WriteAsync(IReadOnlyList<ReportAuditEntry> batch, CancellationToken ct)
+    public async Task<int> WriteAsync(IReadOnlyList<ReportAuditEntry> batch, CancellationToken ct)
     {
         await using var conn = open();
         await conn.OpenAsync(ct);
-        await using var tx = await conn.BeginTransactionAsync(ct);
+        // One statement per row, no shared transaction: a row the database rejects must not discard the others
+        var rejected = 0;
         foreach (var e in batch)
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = InsertSql;
-            cmd.CommandTimeout = timeoutSeconds;
-            Add(cmd, "@ts", DbType.DateTime2, e.TimestampUtc);
-            Add(cmd, "@corr", DbType.String, Trim(e.CorrelationId, 100));
-            Add(cmd, "@action", DbType.String, Trim(e.Action, 20));
-            Add(cmd, "@user", DbType.String, Trim(e.UserId, 100));
-            Add(cmd, "@role", DbType.String, Trim(e.Role, 30));
-            Add(cmd, "@report", DbType.String, Trim(e.ReportId, 80));
-            Add(cmd, "@filters", DbType.String, Trim(string.Join(";", e.Filters.Select(f => $"{f.Key}={f.Value}")), 1000));
-            Add(cmd, "@outcome", DbType.String, Trim(e.Outcome, 30));
-            Add(cmd, "@rows", DbType.Int32, e.RowCount); // the column is ResultRows
-            Add(cmd, "@ms", DbType.Int64, e.DurationMs);
-            await cmd.ExecuteNonQueryAsync(ct);
+            try
+            {
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = InsertSql;
+                cmd.CommandTimeout = timeoutSeconds;
+                Add(cmd, "@ts", DbType.DateTime2, e.TimestampUtc);
+                Add(cmd, "@corr", DbType.String, Clean(e.CorrelationId, 100));
+                Add(cmd, "@action", DbType.String, Clean(e.Action, 20));
+                Add(cmd, "@user", DbType.String, Clean(e.UserId, 100));
+                Add(cmd, "@role", DbType.String, Clean(e.Role, 30));
+                Add(cmd, "@report", DbType.String, Clean(e.ReportId, 80));
+                Add(cmd, "@filters", DbType.String, Clean(string.Join(";", e.Filters.Select(f => $"{f.Key}={f.Value}")), 1000));
+                Add(cmd, "@outcome", DbType.String, Clean(e.Outcome, 30));
+                Add(cmd, "@rows", DbType.Int32, e.RowCount);
+                Add(cmd, "@ms", DbType.Int64, e.DurationMs);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (DbException)
+            {
+                rejected++;
+            }
         }
-        await tx.CommitAsync(ct);
+        // Every row failing looks like an outage, not bad data
+        if (batch.Count > 0 && rejected == batch.Count)
+            throw new InvalidOperationException("No audit row could be written");
+        return rejected;
     }
 
-    private static string Trim(string s, int max) => s.Length <= max ? s : s[..max];
+    // Control characters (log and row forgery), and values longer than the column
+    private static string Clean(string s, int max)
+    {
+        var chars = s.Select(c => char.IsControl(c) ? ' ' : c).ToArray();
+        return new string(chars, 0, Math.Min(chars.Length, max));
+    }
 
     private static void Add(DbCommand cmd, string name, DbType type, object value)
     {
@@ -65,6 +85,9 @@ public sealed class DurableReportAudit : IReportAudit, IDisposable
     private readonly Channel<ReportAuditEntry> _queue;
     private readonly int _batchSize;
     private long _dropped;
+    private int _failures;
+    private long _lastOkTicks;
+    private int _probeOk;
 
     public DurableReportAudit(IReportAudit log, IAuditSink sink, ILogger<DurableReportAudit> logger, int capacity = 10_000, int batchSize = 50)
     {
@@ -80,6 +103,21 @@ public sealed class DurableReportAudit : IReportAudit, IDisposable
 
     public long Dropped => Interlocked.Read(ref _dropped);
 
+    // Snapshot for health checks. Unhealthy = the last write failed or the startup probe has not succeeded yet.
+    // Degraded = some entries were lost earlier (the log still has them) but writes work now.
+    public AuditHealth Health
+    {
+        get
+        {
+            var failures = Volatile.Read(ref _failures);
+            var ok = Volatile.Read(ref _probeOk) == 1;
+            var state = failures > 0 || !ok ? AuditHealthState.Unhealthy
+                : Dropped > 0 ? AuditHealthState.Degraded : AuditHealthState.Healthy;
+            var last = Interlocked.Read(ref _lastOkTicks);
+            return new AuditHealth(state, failures, Dropped, last == 0 ? null : new DateTime(last, DateTimeKind.Utc));
+        }
+    }
+
     public void Record(ReportAuditEntry entry)
     {
         _log.Record(entry);
@@ -94,6 +132,7 @@ public sealed class DurableReportAudit : IReportAudit, IDisposable
     public async Task RunAsync(CancellationToken stopping)
     {
         var batch = new List<ReportAuditEntry>(_batchSize);
+        await ProbeAsync(stopping);
         try
         {
             while (await _queue.Reader.WaitToReadAsync(stopping))
@@ -107,6 +146,30 @@ public sealed class DurableReportAudit : IReportAudit, IDisposable
         if (batch.Count > 0) await Flush(batch, CancellationToken.None);
     }
 
+    // One row at start-up proves the table exists, the login can insert, and the column list is valid
+    private async Task ProbeAsync(CancellationToken ct)
+    {
+        var probe = new ReportAuditEntry(
+            DateTime.UtcNow, "startup", "startup", "system", "system", "-", new Dictionary<string, string>(), "ok", 0, 0);
+        try
+        {
+            if (await _sink.WriteAsync([probe], ct) > 0) throw new InvalidOperationException("probe row rejected");
+            Volatile.Write(ref _probeOk, 1);
+            MarkOk();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Interlocked.Increment(ref _failures);
+            _logger.LogError("Audit start-up probe failed ({ExceptionType}); the durable audit trail is not working", ex.GetType().Name);
+        }
+    }
+
+    private void MarkOk()
+    {
+        Volatile.Write(ref _failures, 0);
+        Interlocked.Exchange(ref _lastOkTicks, DateTime.UtcNow.Ticks);
+    }
+
     private void Drain(List<ReportAuditEntry> batch)
     {
         while (batch.Count < _batchSize && _queue.Reader.TryRead(out var e)) batch.Add(e);
@@ -118,7 +181,15 @@ public sealed class DurableReportAudit : IReportAudit, IDisposable
         {
             try
             {
-                await _sink.WriteAsync(batch, ct);
+                var rejected = await _sink.WriteAsync(batch, ct);
+                if (rejected > 0)
+                {
+                    // Bad rows only: the rest were written, so this is data loss, not an outage
+                    Interlocked.Add(ref _dropped, rejected);
+                    _logger.LogError("Audit sink rejected {Rejected} of {Total} entries; they are kept only in the log", rejected, batch.Count);
+                }
+                Volatile.Write(ref _probeOk, 1);
+                MarkOk();
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -128,6 +199,7 @@ public sealed class DurableReportAudit : IReportAudit, IDisposable
             {
                 // Type only: messages can carry connection details
                 var lost = batch.Count;
+                Interlocked.Increment(ref _failures);
                 Interlocked.Add(ref _dropped, lost);
                 _logger.LogError("Audit write failed ({ExceptionType}); {Lost} entries kept only in the log", ex.GetType().Name, lost);
             }

@@ -245,6 +245,20 @@ public class AzureAdPipelineTests : IDisposable
     }
 
     [Fact]
+    public async Task A_made_up_report_id_never_reaches_the_audit_row()
+    {
+        var evil = Uri.EscapeDataString("x%0D%0Aforged%00" + new string('a', 500));
+        var req = new HttpRequestMessage(HttpMethod.Post, $"/api/reports/{evil}/run")
+        {
+            Content = JsonContent.Create(new { startDate = "2026-05-01", endDate = "2026-05-31" }),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token(oid: UnknownOid));
+        Assert.Equal(HttpStatusCode.Forbidden, (await _http.SendAsync(req)).StatusCode);
+
+        Assert.Equal("unknown", Assert.Single(_audit).ReportId);
+    }
+
+    [Fact]
     public async Task Anonymous_requests_are_rejected_before_the_endpoint_and_leave_no_audit_row()
     {
         await Get(null);
@@ -299,6 +313,15 @@ public class AzureAdPipelineTests : IDisposable
         _store.Fail = true;
         var res = await Get(Token());
         Assert.Equal(HttpStatusCode.ServiceUnavailable, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Audit_health_is_open_shows_only_a_status_word_and_reports_log_only_as_degraded()
+    {
+        var res = await Get(null, "/api/health/audit");
+        var body = await res.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode); // degraded still answers 200
+        Assert.Equal("Degraded", body);
     }
 
     [Fact]

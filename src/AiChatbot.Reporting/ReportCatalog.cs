@@ -94,6 +94,9 @@ public static class ReportCatalog
             AllRoles),
     ];
 
+    // Safe to write to logs and the audit table: a catalog id, or "unknown" for anything the caller made up
+    public static string AuditId(string? id) => Find(id)?.Id ?? "unknown";
+
     public static ReportDefinition? Find(string? id)
         => All.FirstOrDefault(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase));
 }
