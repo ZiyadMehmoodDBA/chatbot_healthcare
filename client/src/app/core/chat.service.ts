@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { AuthService } from './auth.service';
 
 export interface ReportColumn {
   name: string;
@@ -38,6 +39,8 @@ export type StreamEvent =
 // ({"delta"} lines, then {"done"}, or {"error"} mid-stream)
 @Injectable({ providedIn: 'root' })
 export class ChatService {
+  private readonly auth = inject(AuthService);
+
   async *stream(
     prompt: string,
     conversationId: string,
@@ -45,12 +48,14 @@ export class ChatService {
   ): AsyncGenerator<StreamEvent> {
     const res = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await this.auth.headers()) },
       body: JSON.stringify({ prompt, conversationId }),
       signal,
     });
     if (!res.ok || !res.body) {
-      throw new Error(`Request failed with status ${res.status}`);
+      // 401/403/503 carry a user-facing message from the API
+      const err = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(err?.error ?? `Request failed with status ${res.status}`);
     }
 
     const reader = res.body.getReader();
@@ -91,7 +96,7 @@ export class ChatService {
     };
     const res = await fetch(`/api/reports/${encodeURIComponent(evidence.reportId)}/export`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await this.auth.headers()) },
       body: JSON.stringify(body),
     });
     if (!res.ok) {

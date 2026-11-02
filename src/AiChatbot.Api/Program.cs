@@ -18,27 +18,33 @@ builder.Services.AddReportData(
 builder.Services.AddSingleton<ReportTools>();
 builder.Services.AddSingleton<RcmReportTools>();
 builder.Services.AddReporting(builder.Configuration,
-    sp => ReportEndpoints.ConnectionFor(builder.Configuration, sp.GetRequiredService<IReportingSource>()));
-builder.Services.AddSingleton<IActorProvider>(
-    new ConfiguredActorProvider(ConfiguredActorProvider.FromConfig(builder.Configuration, builder.Environment)));
+    sp => ReportEndpoints.ConnectionFor(builder.Configuration, sp.GetRequiredService<IReportingSource>()),
+    // Durable audit needs its own INSERT-only login; without ConnectionStrings:RcmAudit the log is the only record
+    sp => builder.Configuration.GetConnectionString("RcmAudit") is { Length: > 0 } cs
+        ? () => new Microsoft.Data.SqlClient.SqlConnection(cs) : null);
+builder.Services.AddHostedService<AuditWriterService>();
+var authMode = builder.AddRcmAuth();
 builder.Services.AddLlm(builder.Configuration, Path.Combine(builder.Environment.ContentRootPath, "settings.json"));
 builder.Services.AddScoped<ChatAgent>();
 
 var app = builder.Build();
 
+app.UseRcmAuth(authMode);
+
 app.MapSettingsEndpoints();
-app.MapReportEndpoints();
+app.MapReportEndpoints(authMode);
 
 app.MapGet("/api/health", () => new { message = "Welcome to Chat Bot" });
 
-app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx, ILogger<Program> log) =>
+var chatEndpoint = app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx, ILogger<Program> log) =>
 {
     var errors = req.Validate();
     if (errors.Count > 0) return Results.BadRequest(new { errors });
 
     // Chat is RCM mode: a signed-in actor is required, and every report runs with that actor's scope
     var actor = ctx.RequestServices.GetRequiredService<IActorProvider>().Current;
-    if (actor is null) return Results.Json(new { error = "Sign in is required" }, statusCode: 401);
+    if (ActorGate.Deny(ctx, actor) is { } denied) return denied;
+    actor = actor!;
     var turn = new ChatTurn(actor, ctx.TraceIdentifier);
 
     var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -100,6 +106,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx, ILogger<Progra
     }
     return Results.Empty;
 });
+if (authMode == AuthSetup.ModeAzureAd) chatEndpoint.RequireAuthorization(AuthSetup.Policy);
 
 app.Run();
 
@@ -117,3 +124,10 @@ public record ChatRequest(string? Prompt, Guid ConversationId)
 }
 
 public partial class Program;
+
+// Drains the audit queue into SQL in the background; stops cleanly on shutdown
+public sealed class AuditWriterService(IReportAudit audit) : BackgroundService
+{
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        => audit is DurableReportAudit d ? d.RunAsync(stoppingToken) : Task.CompletedTask;
+}

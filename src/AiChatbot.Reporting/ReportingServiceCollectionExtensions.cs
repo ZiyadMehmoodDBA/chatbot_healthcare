@@ -10,13 +10,23 @@ public static class ReportingServiceCollectionExtensions
     // openConnection returns a connection for a read-only login limited to the reporting views, or throws a
     // ReportException(Unavailable) when no database is configured.
     public static IServiceCollection AddReporting(
-        this IServiceCollection services, IConfiguration config, Func<IServiceProvider, Func<DbConnection>> openConnection)
+        this IServiceCollection services, IConfiguration config, Func<IServiceProvider, Func<DbConnection>> openConnection,
+        Func<IServiceProvider, Func<DbConnection>?>? auditConnection = null)
     {
         var options = config.GetSection("Reporting").Get<ReportServiceOptions>() ?? new ReportServiceOptions();
         // Fail at startup on bad view names, not on the first report
         _ = new ReportQueries(options);
         services.AddSingleton(options);
-        services.AddSingleton<IReportAudit, LoggerReportAudit>();
+        services.AddSingleton<LoggerReportAudit>();
+        services.AddSingleton<IReportAudit>(sp =>
+        {
+            var log = sp.GetRequiredService<LoggerReportAudit>();
+            var open = auditConnection?.Invoke(sp);
+            // No audit connection configured: log-only, as before
+            return open is null
+                ? log
+                : new DurableReportAudit(log, new SqlAuditSink(open), sp.GetRequiredService<ILogger<DurableReportAudit>>());
+        });
         services.AddSingleton<IReportExecutor>(sp =>
             new SqlReportExecutor(openConnection(sp), sp.GetRequiredService<ILogger<SqlReportExecutor>>()));
         services.AddSingleton<ReportBroker>();

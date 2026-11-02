@@ -151,7 +151,12 @@ export class Chat {
       flush();
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Chat request failed:', err);
-      this.error.set('Something went wrong. Please try again.');
+      // Messages the API wrote for the user (sign in, no access, unavailable) are shown; network errors are not
+      this.error.set(
+        err instanceof Error && !(err instanceof TypeError) && err.message
+          ? err.message
+          : 'Something went wrong. Please try again.',
+      );
     } finally {
       clearInterval(typer);
       this.loading.set(false);

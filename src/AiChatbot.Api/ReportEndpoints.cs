@@ -47,19 +47,20 @@ public static class ReportEndpoints
         return new SqlConnection(cfg.ConnectionString);
     };
 
-    public static void MapReportEndpoints(this WebApplication app)
+    public static void MapReportEndpoints(this WebApplication app, string authMode = AuthSetup.ModeDev)
     {
         var g = app.MapGroup("/api/reports");
+        if (authMode == AuthSetup.ModeAzureAd) g.RequireAuthorization(AuthSetup.Policy);
 
-        g.MapGet("/", (IActorProvider who, ReportBroker broker) =>
-            who.Current is { } actor ? Results.Ok(broker.CatalogFor(actor)) : Unauthorized());
+        g.MapGet("/", (HttpContext ctx, IActorProvider who, ReportBroker broker) =>
+            ActorGate.Deny(ctx, who.Current) ?? Results.Ok(broker.CatalogFor(who.Current!)));
 
-        g.MapPost("/{id}/run", (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker)
-            => Handle(async () => Results.Ok(
+        g.MapPost("/{id}/run", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker)
+            => ActorGate.Deny(ctx, who.Current) ?? await Handle(async () => Results.Ok(
                 await broker.RunAsync(who.Current, id, body.ToRequest(), "run", ctx.TraceIdentifier, ctx.RequestAborted))));
 
-        g.MapPost("/{id}/export", (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker)
-            => Handle(async () =>
+        g.MapPost("/{id}/export", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker)
+            => ActorGate.Deny(ctx, who.Current) ?? await Handle(async () =>
             {
                 // Export re-runs the report so authorization and audit are applied again at download time
                 var result = await broker.RunAsync(who.Current, id, body.ToRequest(), "export", ctx.TraceIdentifier, ctx.RequestAborted);
@@ -68,8 +69,6 @@ public static class ReportEndpoints
                     "text/csv", $"{result.Evidence.ReportId}_{DateTime.UtcNow:yyyyMMdd}.csv");
             }));
     }
-
-    private static IResult Unauthorized() => Results.Json(new { error = "Sign in is required" }, statusCode: 401);
 
     private static async Task<IResult> Handle(Func<Task<IResult>> run)
     {
