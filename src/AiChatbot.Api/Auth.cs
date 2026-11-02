@@ -154,11 +154,15 @@ public sealed class HttpActorProvider(IHttpContextAccessor http) : IActorProvide
 public static class ActorGate
 {
     // null = proceed. 401 when not signed in; 403 when signed in but not set up (unknown, inactive, bad role).
-    public static IResult? Deny(HttpContext ctx, Actor? actor)
+    public static IResult? Deny(HttpContext ctx, Actor? actor, IReportAudit? audit = null, string reportId = "-", string action = "run")
     {
         if (actor is not null) return null;
         if (ctx.User.Identity?.IsAuthenticated != true)
             return Results.Json(new { error = "Sign in is required" }, statusCode: StatusCodes.Status401Unauthorized);
+        // Signed in but not provisioned: leave a trail so repeated attempts are visible
+        audit?.Record(new ReportAuditEntry(
+            DateTime.UtcNow, ctx.TraceIdentifier, action, ctx.User.FindFirstValue("oid") ?? "unknown", "none", reportId,
+            new Dictionary<string, string>(), "not_provisioned", 0, 0));
         return Results.Json(new
         {
             error = "Your account is not set up for access. Ask an administrator to add you.",

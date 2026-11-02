@@ -124,6 +124,12 @@ public class AzureAdPipelineTests : IDisposable
     private readonly RSA _rsa = RSA.Create(2048);
     private readonly RsaSecurityKey _key;
     private readonly MemStore _store = new();
+    private readonly List<ReportAuditEntry> _audit = [];
+
+    private sealed class ListAudit(List<ReportAuditEntry> list) : IReportAudit
+    {
+        public void Record(ReportAuditEntry entry) { lock (list) list.Add(entry); }
+    }
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _http;
 
@@ -139,6 +145,7 @@ public class AzureAdPipelineTests : IDisposable
             b.ConfigureServices(s =>
             {
                 s.AddSingleton<IAccessStore>(_store);
+                s.AddSingleton<IReportAudit>(new ListAudit(_audit));
                 s.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
                 {
                     o.Authority = null;
@@ -213,6 +220,35 @@ public class AzureAdPipelineTests : IDisposable
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
         Assert.Contains(UnknownOid.ToString(), body);
         Assert.Equal(HttpStatusCode.Forbidden, (await Chat(Token(oid: UnknownOid))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Not_provisioned_attempts_on_run_export_and_chat_are_audited_with_the_users_object_id()
+    {
+        var token = Token(oid: UnknownOid);
+        var body = JsonContent.Create(new { startDate = "2026-05-01", endDate = "2026-05-31" });
+        foreach (var action in new[] { "run", "export" })
+        {
+            var req = new HttpRequestMessage(HttpMethod.Post, $"/api/reports/payments-by-payer/{action}") { Content = body };
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            Assert.Equal(HttpStatusCode.Forbidden, (await _http.SendAsync(req)).StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.Forbidden, (await Chat(token)).StatusCode);
+
+        Assert.Equal(["run", "export", "chat"], _audit.Select(a => a.Action).ToArray());
+        Assert.All(_audit, a =>
+        {
+            Assert.Equal(UnknownOid.ToString(), a.UserId);
+            Assert.Equal("not_provisioned", a.Outcome);
+        });
+        Assert.Equal("payments-by-payer", _audit[0].ReportId);
+    }
+
+    [Fact]
+    public async Task Anonymous_requests_are_rejected_before_the_endpoint_and_leave_no_audit_row()
+    {
+        await Get(null);
+        Assert.Empty(_audit);
     }
 
     [Fact]

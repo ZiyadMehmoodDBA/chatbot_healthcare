@@ -17,7 +17,7 @@ CREATE TABLE chatbot.AuditLog
     ReportId       varchar(80)   NOT NULL,
     Filters        varchar(1000) NOT NULL,   -- e.g. practices=10;startDate=...
     Outcome        varchar(30)   NOT NULL,   -- ok | forbidden | invalid | unavailable ...
-    RowCount       int           NOT NULL,
+    ResultRows     int           NOT NULL,   -- not RowCount: ROWCOUNT is a reserved word in T-SQL
     DurationMs     bigint        NOT NULL
 );
 GO

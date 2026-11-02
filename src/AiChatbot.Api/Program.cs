@@ -43,7 +43,7 @@ var chatEndpoint = app.MapPost("/api/chat", async (ChatRequest req, HttpContext 
 
     // Chat is RCM mode: a signed-in actor is required, and every report runs with that actor's scope
     var actor = ctx.RequestServices.GetRequiredService<IActorProvider>().Current;
-    if (ActorGate.Deny(ctx, actor) is { } denied) return denied;
+    if (ActorGate.Deny(ctx, actor, ctx.RequestServices.GetRequiredService<IReportAudit>(), "chat", "chat") is { } denied) return denied;
     actor = actor!;
     var turn = new ChatTurn(actor, ctx.TraceIdentifier);
 

@@ -13,8 +13,8 @@ public interface IAuditSink
 // Inserts audit rows into chatbot.AuditLog. Needs INSERT on that table only (a login separate from the read-only report login).
 public sealed class SqlAuditSink(Func<DbConnection> open, int timeoutSeconds = 15) : IAuditSink
 {
-    private const string InsertSql =
-        "INSERT chatbot.AuditLog (TimestampUtc, CorrelationId, Action, UserId, Role, ReportId, Filters, Outcome, RowCount, DurationMs) " +
+    public const string InsertSql =
+        "INSERT chatbot.AuditLog (TimestampUtc, CorrelationId, Action, UserId, Role, ReportId, Filters, Outcome, ResultRows, DurationMs) " +
         "VALUES (@ts, @corr, @action, @user, @role, @report, @filters, @outcome, @rows, @ms)";
 
     public async Task WriteAsync(IReadOnlyList<ReportAuditEntry> batch, CancellationToken ct)
@@ -36,7 +36,7 @@ public sealed class SqlAuditSink(Func<DbConnection> open, int timeoutSeconds = 1
             Add(cmd, "@report", DbType.String, Trim(e.ReportId, 80));
             Add(cmd, "@filters", DbType.String, Trim(string.Join(";", e.Filters.Select(f => $"{f.Key}={f.Value}")), 1000));
             Add(cmd, "@outcome", DbType.String, Trim(e.Outcome, 30));
-            Add(cmd, "@rows", DbType.Int32, e.RowCount);
+            Add(cmd, "@rows", DbType.Int32, e.RowCount); // the column is ResultRows
             Add(cmd, "@ms", DbType.Int64, e.DurationMs);
             await cmd.ExecuteNonQueryAsync(ct);
         }

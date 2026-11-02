@@ -96,4 +96,25 @@ public class DurableAuditTests
 
         Assert.Equal(7, sink.Written.Count);
     }
+
+    private static string AuditScript()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "data", "access", "002_chatbot_audit.sql"))) dir = dir.Parent;
+        return File.ReadAllText(Path.Combine(dir!.FullName, "data", "access", "002_chatbot_audit.sql"));
+    }
+
+    // No SQL Server in unit tests: the insert and the table script must agree and avoid T-SQL reserved words
+    [Fact]
+    public void The_insert_columns_all_exist_in_the_table_script_and_none_is_a_reserved_word()
+    {
+        var script = AuditScript();
+        var columns = SqlAuditSink.InsertSql.Split('(')[1].Split(')')[0].Split(',').Select(c => c.Trim()).ToArray();
+
+        Assert.Equal(10, columns.Length);
+        foreach (var c in columns)
+            Assert.Matches($@"(?m)^\s+{c}\s", script);
+        string[] reserved = ["RowCount", "Key", "Index", "User", "Public", "Identity", "Table", "Column", "Order", "Group", "Percent"];
+        Assert.Empty(columns.Intersect(reserved, StringComparer.OrdinalIgnoreCase));
+    }
 }

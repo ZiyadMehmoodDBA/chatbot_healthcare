@@ -52,15 +52,15 @@ public static class ReportEndpoints
         var g = app.MapGroup("/api/reports");
         if (authMode == AuthSetup.ModeAzureAd) g.RequireAuthorization(AuthSetup.Policy);
 
-        g.MapGet("/", (HttpContext ctx, IActorProvider who, ReportBroker broker) =>
-            ActorGate.Deny(ctx, who.Current) ?? Results.Ok(broker.CatalogFor(who.Current!)));
+        g.MapGet("/", (HttpContext ctx, IActorProvider who, ReportBroker broker, IReportAudit audit) =>
+            ActorGate.Deny(ctx, who.Current, audit, "catalog", "list") ?? Results.Ok(broker.CatalogFor(who.Current!)));
 
-        g.MapPost("/{id}/run", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker)
-            => ActorGate.Deny(ctx, who.Current) ?? await Handle(async () => Results.Ok(
+        g.MapPost("/{id}/run", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker, IReportAudit audit)
+            => ActorGate.Deny(ctx, who.Current, audit, id, "run") ?? await Handle(async () => Results.Ok(
                 await broker.RunAsync(who.Current, id, body.ToRequest(), "run", ctx.TraceIdentifier, ctx.RequestAborted))));
 
-        g.MapPost("/{id}/export", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker)
-            => ActorGate.Deny(ctx, who.Current) ?? await Handle(async () =>
+        g.MapPost("/{id}/export", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker, IReportAudit audit)
+            => ActorGate.Deny(ctx, who.Current, audit, id, "export") ?? await Handle(async () =>
             {
                 // Export re-runs the report so authorization and audit are applied again at download time
                 var result = await broker.RunAsync(who.Current, id, body.ToRequest(), "export", ctx.TraceIdentifier, ctx.RequestAborted);
