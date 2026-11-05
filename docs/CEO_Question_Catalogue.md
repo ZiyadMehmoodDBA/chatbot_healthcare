@@ -39,7 +39,7 @@ Eleven themes, in the order a CEO asks them. IDs are stable; use them in tests a
 | F2 | How much came from insurance versus patients? | Split and percentages | same | BUILT |
 | F3 | Which payers pay us the most? | Payers ranked by payments | same | BUILT (`payments-by-payer`) |
 | F4 | How much did we bill (charges) last month? | Sum of charge amount, DOS | `FactClaimCount.Charge_Amount` (line), `FactCPT_KPI`, `FactClaimCptReport` (2 practices only) | BUILD |
-| F5 | Are collections up or down against last month / last year? | Period over period change | F1 with two periods | BUILD (compare mechanism, section 6) |
+| F5 | Are collections up or down against last month / last year? | Period over period change | F1 with two periods | BUILT (period comparison; payments basis still subject to DEC-01) |
 | F6 | What is our net collection rate? | Payments / (charges - contractual adjustments) | `FactCPT_KPI`: `Insurance_Payments`, `Patient_Payments`, `Charge_Amount`, `Contractual_Adjustments` | DEFINE |
 | F7 | What is our gross collection rate? | Payments / charges | same | DEFINE |
 | F8 | How much did we write off or adjust? | Contractual + manual adjustments | `FactCPT_KPI`, `FactClaimCount.Amount_Adjusted` | BUILD |

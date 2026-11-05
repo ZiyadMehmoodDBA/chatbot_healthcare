@@ -27,7 +27,9 @@
               <header class="report-head">
                 <strong>{{ r.evidence.period }}</strong>
                 <span class="chip" [class.draft]="r.evidence.approvalStatus === 'Draft'">{{ r.evidence.approvalStatus }}</span>
-                <button type="button" class="link" (click)="download(r)">Download CSV</button>
+                @if (!r.evidence.filters['comparison']) {
+                  <button type="button" class="link" (click)="download(r)">Download CSV</button>
+                }
               </header>
               <div class="table-wrap">
                 <table>

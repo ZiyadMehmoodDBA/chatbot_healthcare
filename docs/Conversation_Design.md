@@ -20,7 +20,8 @@ decision, each decision is testable offline, and the patient path never passes p
 | 2 | "what can you do", "help" | The reports this role may run, plus the patient lookup if the role has it | No |
 | 3 | Answer to a question the bot asked | See patient flow below | No |
 | 4 | Statement, patient balance, patient account, or an account number in the text | Patient flow | No |
-| 5 | Everything else | Coordinator plan (Single, Multi, Open, Unsupported) and the model with its tools | Yes |
+| 5 | A period comparison ("payments this month vs last month", "denials Q1 vs Q2", "vs the same quarter last year") | Server runs the report for both periods, table with change, sentence written from the rows | No |
+| 6 | Everything else | Coordinator plan (Single, Multi, Open, Unsupported) and the model with its tools. Named periods in the question are turned into exact dates and given to the model. | Yes |
 
 A side question (step 2) never loses an open question: the bot answers it, then repeats "Still open: ...".
 A message that names a report area or an account is a data question, so "give me a summary of account 12345" is a
@@ -50,6 +51,27 @@ Rules:
 - Roles without patient access (Analyst) get a refusal and nothing is queried.
 - "No lines found" is worded the same whether the account does not exist or is outside the user's practices.
 - A database failure says the data is unavailable. It is never reported as "no lines".
+
+## Periods and comparison
+
+`Periods` (Reporting) turns time words into exact dates: today, yesterday, this/last week, this/last month, MTD, QTD,
+YTD, this/last quarter, last year, "last N days/weeks/months", "Q1 2026", "April", "April 2025", "2025". Calendar-based:
+the fiscal calendar is not defined yet. "may" counts as a month only after words like in, for, of, vs.
+
+`ComparePlanner` decides a comparison is wanted (compare, YoY, "vs" with two periods, trending/up or down) and picks the
+report from the area (payments, payments by payer, A/R aging, claim volume, days to bill, denials). Rules:
+
+- Of two named periods, the later one is "current".
+- One period is compared with the period of the same shape just before it (month to previous month, month-to-date to the
+  same days of last month, quarter to previous quarter). "Same period last year" / YoY compares with a year earlier.
+- No period: it asks which. Unclear report: it asks which. Unsupported area: the coordinator's own reply.
+- "Insurance vs patient payments" is a report name and is not read as a comparison.
+- A/R is compared as the balance on the last day of each period (the source keeps no history).
+
+`ReportBroker.CompareAsync` runs both periods through `RunAsync` (role, practice scope, limits and audit apply to each),
+and `ComparisonBuilder` puts them side by side: grouping columns, then for chosen measures current, prior, change and change %.
+The sentence comes from `ReportDigests.Compare`. If a period runs past the data-through date the table and the sentence
+say the comparison is incomplete. Different period lengths are called out. Comparison tables have no CSV download.
 
 ## What the lookup returns
 

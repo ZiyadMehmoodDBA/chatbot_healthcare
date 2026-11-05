@@ -99,6 +99,34 @@ public sealed class RcmReportTools
 
     public DateTime UtcNow => _now();
 
+    public int MaxTopN => _broker.MaxTopN;
+
+    // A period comparison. Not a model tool: the server runs both periods through the broker. Error text is fixed.
+    public async Task<(ReportResult? Report, string? Error)> RunComparisonAsync(
+        ChatTurn turn, string reportId, ReportRequest current, ReportRequest prior, IReadOnlyList<string> caveats,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var report = await _broker.CompareAsync(turn.Actor, reportId, current, prior, "run", turn.CorrelationId, caveats, ct);
+            return (report, null);
+        }
+        catch (ReportException ex)
+        {
+            return (null, ex.Kind switch
+            {
+                ReportErrorKind.Forbidden => "Your role isn't allowed to run that report.",
+                ReportErrorKind.Unauthenticated => "Please sign in again.",
+                ReportErrorKind.Invalid => ex.Message,
+                _ => "I couldn't reach the reporting data just now, so I can't compare those periods. Please try again shortly.",
+            });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return (null, "I couldn't reach the reporting data just now, so I can't compare those periods. Please try again shortly.");
+        }
+    }
+
     // The patient account lookup. Not a model tool: the server calls it after the decision engine has an account.
     // Scope, role check, fixed SQL and audit all happen in the broker. Error text is fixed and safe to show the user.
     public async Task<(ReportResult? Report, string? Error)> RunPatientBalanceAsync(

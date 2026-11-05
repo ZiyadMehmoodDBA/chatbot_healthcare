@@ -127,7 +127,8 @@ public sealed class ChatAgent(
         string? context = null;
         if (rcmMode)
         {
-            var decision = DecisionEngine.Decide(turn!.Actor!, prepared.Text, session, rcm!.Modules, safety.Tokens, conversationId);
+            var decision = DecisionEngine.Decide(turn!.Actor!, prepared.Text, session, rcm!.Modules, safety.Tokens, conversationId,
+                rcm.Today, rcm.MaxTopN);
 
             if (decision is ReplyDecision reply)
             {
@@ -140,6 +141,14 @@ public sealed class ChatAgent(
             {
                 turn.Trace.Add(new TraceStep("decision", "Patient", "ok", Detail: patient.Reason));
                 var text = await LookupPatientAsync(conversationId, prepared.Text, patient, turn, ct);
+                yield return text;
+                yield break;
+            }
+
+            if (decision is CompareDecision compare)
+            {
+                turn.Trace.Add(new TraceStep("decision", "Compare", "ok", Detail: compare.Reason));
+                var text = await CompareAsync(conversationId, prepared.Text, compare, turn, ct);
                 yield return text;
                 yield break;
             }
@@ -313,6 +322,37 @@ public sealed class ChatAgent(
         store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question),
             new ChatMessage(ChatRole.Assistant, error is not null ? error : $"Looked up the patient billing balance for {p.Token}."));
         _memory.AddTurn(conversationId, question, kind, answer, digests, rcm.UtcNow);
+        return safety.Finalize(conversationId, answer, new Dictionary<string, string>());
+    }
+
+    // Two periods of one report, run by the server. The model is not involved: the table goes to the UI as a report line
+    // and the reply is built from the report's own rows. Model-facing history gets a note without figures.
+    private async Task<string> CompareAsync(
+        Guid conversationId, string question, CompareDecision c, ChatTurn turn, CancellationToken ct)
+    {
+        var timer = Stopwatch.StartNew();
+        var (report, error) = await rcm!.RunComparisonAsync(turn, c.ReportId, c.Current, c.Prior, c.Caveats, ct);
+        turn.Trace.Add(new TraceStep("tool", "Compare:" + c.ReportId, error is null ? "ok" : "error", timer.ElapsedMilliseconds,
+            report is null ? null : $"rows={report.Evidence.RowCount}"));
+
+        string answer;
+        var digests = new List<ReportDigest>();
+        var name = ReportCatalog.Find(c.ReportId)?.Name ?? c.ReportId;
+        if (error is not null)
+        {
+            answer = error;
+        }
+        else
+        {
+            var headline = ReportDigests.Compare(report!);
+            digests.Add(new ReportDigest(c.ReportId, name + " (comparison)", report!.Evidence.Period, report.Rows.Count, headline));
+            turn.Reports.Add(report);
+            answer = headline + " The table shows each row for both periods, with the change.";
+        }
+
+        store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question),
+            new ChatMessage(ChatRole.Assistant, error is not null ? error : $"Compared {name} for two periods ({c.Label})."));
+        _memory.AddTurn(conversationId, question, digests.Count > 0 ? TurnKind.Report : TurnKind.Refused, answer, digests, rcm.UtcNow);
         return safety.Finalize(conversationId, answer, new Dictionary<string, string>());
     }
 

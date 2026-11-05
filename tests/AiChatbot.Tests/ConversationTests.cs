@@ -333,6 +333,132 @@ public class ConversationTests
         Assert.NotEmpty(turn.Reports);
     }
 
+    // ----- period comparison (today in the rig is 2026-10-29) -----
+
+    [Fact]
+    public async Task A_comparison_runs_both_periods_in_code_with_no_model_call()
+    {
+        var rig = Build();
+
+        var (text, turn) = await rig.Say("compare payments by payer last month vs this month");
+
+        Assert.Empty(rig.Client.Rounds);
+        var report = Assert.Single(turn.Reports);
+        Assert.Equal("true", report.Evidence.Filters["comparison"]);
+        Assert.Equal("2026-10-01 to 2026-10-29 vs 2026-09-01 to 2026-09-30", report.Evidence.Period);
+        Assert.Contains("versus", text);
+        Assert.Contains("Combined payments", text);
+        // today is in October but the data runs through 2026-06-05: the reply must say the comparison is incomplete
+        Assert.Contains("incomplete", text);
+        Assert.Contains(turn.Trace, t => t.Kind == "decision" && t.Name == "Compare");
+        // both runs went through the broker with the actor's own practices
+        Assert.True(rig.Exec.Queries.Count >= 2); // one or more queries per period
+        Assert.All(rig.Exec.Queries, q =>
+            Assert.Equal([10L], q.Parameters.Where(p => p.Name.StartsWith("@p")).Select(p => (long)p.Value).ToArray()));
+    }
+
+    [Fact]
+    public async Task One_named_period_is_compared_with_the_period_before()
+    {
+        var rig = Build();
+
+        var (_, turn) = await rig.Say("compare claim volume last month");
+
+        Assert.Equal("2026-09-01 to 2026-09-30 vs 2026-08-01 to 2026-08-31", Assert.Single(turn.Reports).Evidence.Period);
+    }
+
+    [Fact]
+    public async Task Year_over_year_uses_the_same_dates_a_year_earlier()
+    {
+        var rig = Build();
+
+        var (_, turn) = await rig.Say("denials last quarter vs the same quarter last year");
+
+        Assert.Equal("2026-07-01 to 2026-09-30 vs 2025-07-01 to 2025-09-30", Assert.Single(turn.Reports).Evidence.Period);
+    }
+
+    [Fact]
+    public async Task Insurance_aging_is_compared_as_the_balance_at_the_end_of_each_period()
+    {
+        var rig = Build();
+
+        var (text, turn) = await rig.Say("compare a/r aging last month vs the month before");
+
+        var report = Assert.Single(turn.Reports);
+        Assert.Equal(ReportCatalog.InsuranceAging, report.Evidence.ReportId);
+        Assert.Contains(report.Evidence.Caveats, c => c.Contains("balance on the last day"));
+        Assert.Contains("versus", text);
+    }
+
+    [Fact]
+    public async Task A_comparison_with_no_period_asks_which_one_and_runs_nothing()
+    {
+        var rig = Build();
+
+        var (text, turn) = await rig.Say("are payments trending up or down?");
+
+        Assert.Contains("Which period should I compare?", text);
+        Assert.Empty(turn.Reports);
+        Assert.Empty(rig.Exec.Queries);
+        Assert.Empty(rig.Client.Rounds);
+    }
+
+    [Fact]
+    public async Task An_unclear_report_is_asked_about_not_guessed()
+    {
+        var rig = Build();
+
+        var (text, turn) = await rig.Say("compare last month vs this month");
+
+        Assert.Contains("Which report should I compare", text);
+        Assert.Empty(turn.Reports);
+    }
+
+    [Fact]
+    public async Task The_report_name_insurance_versus_patient_is_not_read_as_a_comparison()
+    {
+        var rig = Build(ProviderKind.Local, Call(RcmReportTools.InsuranceVsPatient, May), Text("Split {SPLIT_COMBINED_TOTAL}."));
+
+        var (_, turn) = await rig.Say("insurance versus patient payments for may");
+
+        Assert.NotEqual("true", turn.Reports.SingleOrDefault()?.Evidence.Filters.GetValueOrDefault("comparison"));
+    }
+
+    [Fact]
+    public async Task A_comparison_can_be_summarized_and_leaves_no_figures_in_model_history()
+    {
+        var rig = Build();
+        await rig.Say("compare payments last month vs this month");
+
+        var (summary, _) = await rig.Say("summarize that");
+
+        Assert.Contains("versus", summary);
+        Assert.Empty(rig.Client.Rounds);
+    }
+
+    [Fact]
+    public async Task A_database_failure_during_a_comparison_says_so_and_shows_no_table()
+    {
+        var rig = Build();
+        rig.Exec.Fail = true;
+
+        var (text, turn) = await rig.Say("compare payments last month vs this month");
+
+        Assert.Contains("couldn't reach", text);
+        Assert.Empty(turn.Reports);
+    }
+
+    [Fact]
+    public async Task Named_periods_in_an_ordinary_question_reach_the_model_as_exact_dates()
+    {
+        var rig = Build(ProviderKind.Local, Text("ok"));
+
+        await rig.Say("show payments by payer QTD");
+
+        var system = rig.Client.Rounds[0].First(m => m.Role == ChatRole.System).Text;
+        Assert.Contains("\"QTD\" = 2026-10-01 to 2026-10-29", system);
+    }
+
     [Fact]
     public async Task Start_over_clears_the_patient_figures_from_the_record()
     {

@@ -55,6 +55,46 @@ public static class ReportDigests
         }
     }
 
+    // One sentence for a comparison table (ComparisonBuilder output), from its own rows: the headline measure for the
+    // current period, the prior period, and the change. Overall rows are used where the report has them.
+    public static string Compare(ReportResult r)
+    {
+        var id = r.Evidence.ReportId;
+        var (measure, label, kind, overall) = id switch
+        {
+            ReportCatalog.InsuranceVsPatient => ("combinedPayments", "Combined payments", 'm', true),
+            ReportCatalog.PaymentsByPayer => ("combinedPayments", "Combined payments across the listed payers", 'm', false),
+            ReportCatalog.InsuranceAging => ("totalBalance", "Open insurance A/R across the listed payers", 'm', false),
+            ReportCatalog.ClaimVolume => ("claimCount", "Unique claims across the listed providers", 'n', false),
+            ReportCatalog.DaysToBill => ("avgDays", "Average days to bill", 'd', true),
+            ReportCatalog.Denials => ("claimCount", "Claims with a status entry (accepted or rejected)", 'n', true),
+            _ => ("", "", 'n', true),
+        };
+        var names = r.Columns.Select(c => c.Name).ToList();
+        var ci = names.IndexOf(measure);
+        if (ci < 0 || r.Rows.Count == 0) return $"{r.Evidence.Period}: no matching records in either period.";
+        decimal cur, pri;
+        if (overall) { cur = Dec(r.Rows[0][ci]); pri = Dec(r.Rows[0][ci + 1]); }
+        else { cur = r.Rows.Sum(x => Dec(x[ci])); pri = r.Rows.Sum(x => Dec(x[ci + 1])); }
+        string F(decimal v) => kind switch
+        {
+            'm' => v.ToString("N2", CultureInfo.InvariantCulture),
+            'd' => v.ToString("0.0", CultureInfo.InvariantCulture),
+            _ => v.ToString("N0", CultureInfo.InvariantCulture),
+        };
+        var change = cur - pri;
+        var dir = change > 0 ? "up" : change < 0 ? "down" : "unchanged";
+        var pct = pri != 0
+            ? $" ({(change >= 0 ? "+" : "-")}{Math.Abs(Math.Round(change / pri * 100m, 1, MidpointRounding.AwayFromZero)).ToString("0.0", CultureInfo.InvariantCulture)}%)"
+            : "";
+        var move = change == 0 ? "unchanged" : $"{dir} {F(Math.Abs(change))}{pct}";
+        var through = r.Evidence.DataThrough is { } d ? $" Data through {d:yyyy-MM-dd}." : "";
+        var partial = r.Evidence.Filters.TryGetValue("incomplete", out var which)
+            ? $" Note: the {which} period runs past the data-through date, so this comparison is incomplete."
+            : "";
+        return $"{label}, {r.Evidence.Period}: {F(cur)} versus {F(pri)}, {move}.{through}{partial}";
+    }
+
     private static string Count(int n, string noun) => $"{n.ToString("N0", CultureInfo.InvariantCulture)} {noun}{(n == 1 ? "" : "s")}";
     private static string Money(object? o) => Dec(o).ToString("N2", CultureInfo.InvariantCulture);
     private static string Num(object? o) => Long(o).ToString("N0", CultureInfo.InvariantCulture);

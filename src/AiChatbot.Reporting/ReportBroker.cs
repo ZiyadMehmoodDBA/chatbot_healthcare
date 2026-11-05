@@ -86,6 +86,26 @@ public sealed class ReportBroker(
         => ReportCatalog.All.Where(r => !r.PatientLevel && r.AllowedRoles.Contains(actor.Role)).ToList();
 
     // action: "run" or "export". Export goes through the same checks again.
+    public int MaxTopN => options.MaxTopN;
+
+    // Two runs of the same report, side by side. Each run goes through RunAsync, so role, practice scope, limits and
+    // audit apply to both. Nothing here widens access.
+    public async Task<ReportResult> CompareAsync(
+        Actor? actor, string reportId, ReportRequest current, ReportRequest prior, string action, string correlationId,
+        IReadOnlyList<string>? extraCaveats = null, CancellationToken ct = default)
+    {
+        if (!ComparisonBuilder.CanCompare(reportId))
+            throw new ReportException(ReportErrorKind.Invalid, "This report cannot be compared across periods");
+        var cur = await RunAsync(actor, reportId, current, action, correlationId, ct);
+        var pri = await RunAsync(actor, reportId, prior, action, correlationId, ct);
+        // A period that runs past the loaded data compares a partial period with a full one
+        static bool Past(ReportRequest q, DateOnly? through)
+            => through is { } t && (q.AsOfDate ?? q.EndDate) is { } e && e > t;
+        var c = Past(current, cur.Evidence.DataThrough);
+        var p = Past(prior, pri.Evidence.DataThrough);
+        return ComparisonBuilder.Build(cur, pri, extraCaveats, c && p ? "both" : c ? "current" : p ? "prior" : null);
+    }
+
     public async Task<ReportResult> RunAsync(
         Actor? actor, string reportId, ReportRequest request, string action, string correlationId, CancellationToken ct = default)
     {

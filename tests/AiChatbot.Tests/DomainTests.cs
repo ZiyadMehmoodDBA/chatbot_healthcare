@@ -326,7 +326,7 @@ public class DomainTests
             Text("May {SPLIT_COMBINED_TOTAL}, June {SPLIT2_COMBINED_TOTAL}."));
         var agent = Agent(client, ProviderKind.Local, Registry(new FakeExecutor()), out _);
 
-        var text = await Ask(agent, "compare insurance vs patient payments for may and june", new ChatTurn(Manager, "c"));
+        var text = await Ask(agent, "show insurance and patient payments for may and june", new ChatTurn(Manager, "c"));
 
         Assert.Equal("May 120.00, June 240.00.", text);
     }

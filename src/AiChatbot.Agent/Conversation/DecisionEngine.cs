@@ -42,8 +42,9 @@ public static partial class DecisionEngine
 
     public static Decision Decide(
         Actor actor, string text, SessionSnapshot session, IReadOnlyList<IDomainModule> modules,
-        ITokenizationService tokens, Guid conversationId)
+        ITokenizationService tokens, Guid conversationId, DateOnly? today = null, int maxTopN = 100)
     {
+        var day = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var allowed = modules.Where(m => m.Allows(actor)).ToList();
         var lower = text.ToLowerInvariant();
         var hasReportWords = allowed.Any(m => m.Keywords.Any(k => Coordinator.HasWord(lower, k)));
@@ -134,8 +135,12 @@ public static partial class DecisionEngine
             && accounts.Count == 0 && ConversationIntents.AsksForDetail(text))
             return Lookup("details", inFocus, tokens, conversationId, "patient: details of the account in focus", forceDetail: true);
 
-        // 5. Report questions
-        return new ModelDecision(plan, ConversationIntents.WantsBrief(text), ContextFor(session), $"plan: {plan.Kind}");
+        // 5. Period comparison: two runs of one report, decided and run by the server
+        if (ComparePlanner.Plan(text, plan, day, maxTopN) is { } compare) return compare;
+
+        // 6. Report questions
+        return new ModelDecision(plan, ConversationIntents.WantsBrief(text),
+            ContextFor(session, text, day), $"plan: {plan.Kind}");
     }
 
     private const string OneAtATime = "I can look up one patient account at a time. Which account should I start with?";
@@ -150,11 +155,20 @@ public static partial class DecisionEngine
             : Ask(AskAccount, PendingKind.PatientAccount, "patient: account token did not resolve");
 
     // Follow-ups: "same for April", "now by payer". Report name and period only, never figures.
-    private static string? ContextFor(SessionSnapshot s)
-        => s.LastReport is { } r
-            ? $"Earlier in this conversation you ran \"{r.Name}\" for {r.Period}. If the new question leaves out the period, " +
-              "or says same, again, also, now, or asks for a different breakdown, reuse that period unless the user changes it."
-            : null;
+    private static string? ContextFor(SessionSnapshot s, string text, DateOnly today)
+    {
+        var parts = new List<string>();
+        if (s.LastReport is { } r)
+            parts.Add($"Earlier in this conversation you ran \"{r.Name}\" for {r.Period}. If the new question leaves out the period, " +
+                      "or says same, again, also, now, or asks for a different breakdown, reuse that period unless the user changes it.");
+        // Named periods are turned into exact dates here so the model does not have to work them out
+        var named = Periods.Find(text, today);
+        if (named.Count > 0)
+            parts.Add("The user's time words mean exactly: " +
+                      string.Join("; ", named.Select(f => $"\"{f.Range.Phrase.Trim()}\" = {f.Range.Label}")) +
+                      ". Use these dates; do not work out your own.");
+        return parts.Count == 0 ? null : string.Join(" ", parts);
+    }
 
     private static int Words(string s) => s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 }
