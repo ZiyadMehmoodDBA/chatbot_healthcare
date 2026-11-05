@@ -231,8 +231,12 @@ internal static class Headline
                     var (mi, money) = MainMeasure(grouped);
                     var at = grouped.Groups.Count + mi;
                     v[$"{p}_ROWS"] = rows.Count.ToString(CultureInfo.InvariantCulture);
-                    v[$"{p}_FIRST_GROUP"] = string.Join(" / ", Enumerable.Range(0, grouped.Groups.Count)
-                        .Select(i => Convert.ToString(rows[0][i], CultureInfo.InvariantCulture) ?? ""));
+                    // Only values of a known shape reach the model (month, numeric code, status); database text such as a
+                    // payer name stays out so it cannot carry instructions
+                    var safeGroup = Enumerable.Range(0, grouped.Groups.Count)
+                        .Select(i => Convert.ToString(rows[0][i], CultureInfo.InvariantCulture) ?? "")
+                        .Where(g => SafeGroupValue.IsMatch(g)).ToList();
+                    if (safeGroup.Count > 0) v[$"{p}_FIRST_GROUP"] = string.Join(" / ", safeGroup);
                     v[$"{p}_FIRST_VALUE"] = money ? Money(rows[0][at]) : Num(rows[0][at]);
                     var total = rows.Sum(row => Convert.ToDecimal(row[at], CultureInfo.InvariantCulture));
                     v[$"{p}_LISTED_TOTAL"] = money ? Money(total) : Num(total);
@@ -243,6 +247,9 @@ internal static class Headline
             v[$"{p}_EMPTY"] = "No matching records in this period";
         return v;
     }
+
+    private static readonly System.Text.RegularExpressions.Regex SafeGroupValue =
+        new(@"^(?:\d{4}-\d{2}|\d{1,12}|Accepted|Rejected)$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     // The measure a grouped report is read by: its combined/total money measure, else charges, else the first count
     internal static (int Index, bool Money) MainMeasure(GroupedSpec s)

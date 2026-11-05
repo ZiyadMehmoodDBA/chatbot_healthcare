@@ -83,7 +83,7 @@ public sealed class SqlAccessStore(Func<DbConnection> open, ILogger<SqlAccessSto
 // revoked user loses access within the TTL; lookup failures are never cached.
 public sealed class UserDirectory(IAccessStore store, TimeSpan ttl, Func<DateTime>? clock = null, ILogger<UserDirectory>? log = null)
 {
-    private static readonly string[] KnownRoles = [Roles.BillingStaff, Roles.RcmManager, Roles.Analyst];
+    private static readonly string[] KnownRoles = [Roles.BillingStaff, Roles.RcmManager, Roles.Analyst, Roles.Executive];
 
     private readonly Func<DateTime> _now = clock ?? (() => DateTime.UtcNow);
     private readonly Dictionary<(Guid, Guid), (Actor? Actor, DateTime Expires)> _cache = [];

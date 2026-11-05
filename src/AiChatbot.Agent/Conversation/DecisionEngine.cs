@@ -135,6 +135,9 @@ public static partial class DecisionEngine
             && accounts.Count == 0 && ConversationIntents.AsksForDetail(text))
             return Lookup("details", inFocus, tokens, conversationId, "patient: details of the account in focus", forceDetail: true);
 
+        // 5a. Business snapshot ("how are we doing"): the main reports, this period against the one before
+        if (SnapshotPlanner.Plan(text, actor, day, maxTopN) is { } snapshot) return snapshot;
+
         // 5. Period comparison: two runs of one report, decided and run by the server
         if (ComparePlanner.Plan(text, plan, day, maxTopN) is { } compare) return compare;
 

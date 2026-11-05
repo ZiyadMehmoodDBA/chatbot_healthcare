@@ -54,12 +54,14 @@ public class ConversationTests
         public List<ReportQuery> Queries { get; } = [];
         public bool HasPatient { get; set; } = true;
         public bool Fail { get; set; }
+        public string[] FailViews { get; set; } = [];
 
         public Task<IReadOnlyList<object?[]>> ExecuteAsync(ReportQuery q, CancellationToken ct)
         {
             if (Fail) throw new ReportException(ReportErrorKind.Unavailable, "The reporting data source is unavailable");
             if (q.Sql.StartsWith("SELECT MAX(", StringComparison.Ordinal))
                 return Rows([new DateTime(2026, 6, 5)]);
+            if (FailViews.Any(v => q.Sql.Contains(v))) throw new ReportException(ReportErrorKind.Unavailable, "The reporting data source is unavailable");
             Queries.Add(q);
             var top = q.Sql.Contains("TOP (@");
             if (q.Sql.Contains("vw_Rpt_PatientBilling"))
@@ -457,6 +459,96 @@ public class ConversationTests
 
         var system = rig.Client.Rounds[0].First(m => m.Role == ChatRole.System).Text;
         Assert.Contains("\"QTD\" = 2026-10-01 to 2026-10-29", system);
+    }
+
+    // ----- business snapshot ("how are we doing") and the Executive role -----
+
+    private static readonly Actor Leader = new("u9", Roles.Executive, [10]);
+
+    [Theory]
+    [InlineData("how are we doing?")]
+    [InlineData("How is the business doing")]
+    [InlineData("give me an executive summary")]
+    [InlineData("show me the key metrics")]
+    public async Task A_snapshot_runs_every_main_report_for_two_periods_with_no_model_call(string question)
+    {
+        var rig = Build();
+
+        var (text, turn) = await rig.Say(question, Leader);
+
+        Assert.Empty(rig.Client.Rounds);
+        Assert.Equal(5, turn.Reports.Count);
+        Assert.All(turn.Reports, r => Assert.Equal("true", r.Evidence.Filters["comparison"]));
+        Assert.Contains("Business snapshot, 2026-09-01 to 2026-09-30 vs 2026-08-01 to 2026-08-31", text);
+        Assert.Contains("draft", text);
+        Assert.Contains(turn.Trace, t => t.Kind == "decision" && t.Name == "Snapshot");
+    }
+
+    [Fact]
+    public async Task A_snapshot_honours_a_named_period()
+    {
+        var rig = Build();
+
+        var (text, _) = await rig.Say("how are we doing this quarter vs last quarter", Leader);
+
+        Assert.Contains("2026-10-01 to 2026-10-29 vs 2026-07-01 to 2026-09-30", text.Replace("2026-10-01 to 2026-12-31", "2026-10-01 to 2026-10-29"));
+    }
+
+    [Fact]
+    public async Task A_snapshot_is_for_every_report_role_and_never_reaches_a_patient()
+    {
+        var rig = Build();
+
+        var (_, turn) = await rig.Say("how are we doing?", Leader);
+
+        Assert.DoesNotContain(turn.Reports, r => r.Evidence.ReportId == ReportCatalog.PatientBilling);
+        Assert.False(ReportCatalog.Find(ReportCatalog.PatientBilling)!.AllowedRoles.Contains(Roles.Executive));
+    }
+
+    [Fact]
+    public async Task Executive_cannot_look_up_a_patient_account()
+    {
+        var rig = Build();
+
+        var (text, turn) = await rig.Say("show the balance for account 12345", Leader);
+
+        Assert.Empty(turn.Reports);
+        Assert.DoesNotContain("12345", text);
+    }
+
+    [Fact]
+    public async Task One_report_failing_leaves_the_others_and_names_it()
+    {
+        var rig = Build();
+        rig.Exec.FailViews = ["vw_Rpt_Denials"];
+
+        var (text, turn) = await rig.Say("how are we doing?", Leader);
+
+        Assert.Contains("unavailable right now", text);
+        Assert.Equal(4, turn.Reports.Count);
+    }
+
+    [Fact]
+    public async Task A_snapshot_with_the_database_down_says_so_and_shows_no_table()
+    {
+        var rig = Build();
+        rig.Exec.Fail = true;
+
+        var (text, turn) = await rig.Say("how are we doing?", Leader);
+
+        Assert.Contains("couldn't reach", text);
+        Assert.Empty(turn.Reports);
+    }
+
+    [Fact]
+    public async Task A_snapshot_is_remembered_so_the_user_can_ask_for_a_recap()
+    {
+        var rig = Build();
+        await rig.Say("how are we doing?", Leader);
+
+        var (recap, _) = await rig.Say("what was my first question?", Leader);
+
+        Assert.Contains("how are we doing", recap);
     }
 
     [Fact]

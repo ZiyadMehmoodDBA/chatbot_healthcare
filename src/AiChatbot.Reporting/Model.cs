@@ -5,6 +5,8 @@ public static class Roles
     public const string BillingStaff = "BillingStaff";
     public const string RcmManager = "RcmManager";
     public const string Analyst = "Analyst";
+    // Leadership: every aggregate report and the business snapshot, never a patient-level lookup
+    public const string Executive = "Executive";
 }
 
 // The authenticated caller and the practices they may see. Built by the host from a verified identity, never from

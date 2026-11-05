@@ -15,4 +15,7 @@
     <ProjectReference Include="..\AiChatbot.Reporting\AiChatbot.Reporting.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="AiChatbot.Tests" />
+  </ItemGroup>
 </Project>

@@ -53,7 +53,7 @@ VALUES ('<tenant>', '<user object id>', N'Jane Doe', 'RcmManager');
 INSERT chatbot.UserPractice (UserId, PracticeCode) VALUES (SCOPE_IDENTITY(), 21109);
 ```
 
-Roles: `BillingStaff`, `RcmManager`, `Analyst`. Revoke: `UPDATE chatbot.UserAccess SET IsActive = 0 WHERE ObjectId = '...'`
+Roles: `BillingStaff`, `RcmManager`, `Analyst`, `Executive` (all aggregate reports and the business snapshot, no patient lookup; existing installs run `data/access/003_executive_role.sql`). Revoke: `UPDATE chatbot.UserAccess SET IsActive = 0 WHERE ObjectId = '...'`
 (takes effect within `Auth:AccessCacheSeconds`).
 
 ## Audit health

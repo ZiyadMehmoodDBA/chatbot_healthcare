@@ -16,7 +16,7 @@ CREATE TABLE chatbot.UserAccess
     CreatedUtc   datetime2(0)      NOT NULL CONSTRAINT DF_UserAccess_Created DEFAULT (SYSUTCDATETIME()),
     UpdatedUtc   datetime2(0)      NOT NULL CONSTRAINT DF_UserAccess_Updated DEFAULT (SYSUTCDATETIME()),
     CONSTRAINT UQ_UserAccess_Identity UNIQUE (TenantId, ObjectId),
-    CONSTRAINT CK_UserAccess_Role CHECK (Role IN ('BillingStaff', 'RcmManager', 'Analyst'))
+    CONSTRAINT CK_UserAccess_Role CHECK (Role IN ('BillingStaff', 'RcmManager', 'Analyst', 'Executive'))
 );
 GO
 IF OBJECT_ID(N'chatbot.UserPractice') IS NULL

@@ -153,6 +153,13 @@ public sealed class ChatAgent(
                 yield break;
             }
 
+            if (decision is SnapshotDecision snap)
+            {
+                turn.Trace.Add(new TraceStep("decision", "Snapshot", "ok", Detail: snap.Reason));
+                yield return await SnapshotAsync(conversationId, prepared.Text, snap, turn, ct);
+                yield break;
+            }
+
             var model = (ModelDecision)decision;
             (plan, brief, context) = (model.Plan, model.Brief, model.Context);
             // Moving on to a report question closes any open patient question
@@ -322,6 +329,41 @@ public sealed class ChatAgent(
         store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question),
             new ChatMessage(ChatRole.Assistant, error is not null ? error : $"Looked up the patient billing balance for {p.Token}."));
         _memory.AddTurn(conversationId, question, kind, answer, digests, rcm.UtcNow);
+        return safety.Finalize(conversationId, answer, new Dictionary<string, string>());
+    }
+
+    // The business snapshot: each report compared across the two periods, one line per report written from its rows.
+    // A report that fails is named as unavailable; the others still show.
+    private async Task<string> SnapshotAsync(Guid conversationId, string question, SnapshotDecision s, ChatTurn turn, CancellationToken ct)
+    {
+        var lines = new List<string>();
+        var digests = new List<ReportDigest>();
+        foreach (var part in s.Parts)
+        {
+            var timer = Stopwatch.StartNew();
+            var (report, error) = await rcm!.RunComparisonAsync(turn, part.ReportId, part.Current, part.Prior, part.Caveats, ct);
+            turn.Trace.Add(new TraceStep("tool", "Snapshot:" + part.ReportId, error is null ? "ok" : "error", timer.ElapsedMilliseconds,
+                report is null ? null : $"rows={report.Evidence.RowCount}"));
+            var name = ReportCatalog.Find(part.ReportId)?.Name ?? part.ReportId;
+            if (report is null)
+            {
+                lines.Add($"- {name}: unavailable right now.");
+                continue;
+            }
+            var headline = ReportDigests.Compare(report);
+            digests.Add(new ReportDigest(part.ReportId, name + " (comparison)", report.Evidence.Period, report.Rows.Count, headline));
+            turn.Reports.Add(report);
+            lines.Add("- " + headline);
+        }
+
+        var answer = digests.Count == 0
+            ? "I couldn't reach the reporting data just now, so I can't build the snapshot. Please try again shortly."
+            : $"Business snapshot, {s.Label}:\n{string.Join("\n", lines)}\n" +
+              "Each table shows both periods with the change. These are draft reports until the business owner approves them.";
+
+        store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question),
+            new ChatMessage(ChatRole.Assistant, digests.Count == 0 ? answer : $"Gave a business snapshot ({s.Label}) from {digests.Count} reports."));
+        _memory.AddTurn(conversationId, question, digests.Count > 0 ? TurnKind.Report : TurnKind.Refused, answer, digests, rcm.UtcNow);
         return safety.Finalize(conversationId, answer, new Dictionary<string, string>());
     }
 

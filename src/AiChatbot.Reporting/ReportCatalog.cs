@@ -20,7 +20,7 @@ public static class ReportCatalog
     public const string StatusDate = "status";
     public const string Current = "current";
 
-    private static readonly string[] AllRoles = [Roles.BillingStaff, Roles.RcmManager, Roles.Analyst];
+    private static readonly string[] AllRoles = [Roles.BillingStaff, Roles.RcmManager, Roles.Analyst, Roles.Executive];
     // Access matrix (docs/Data_Maps.md section 3): patient-level lookups are not for analysts
     private static readonly string[] PatientRoles = [Roles.BillingStaff, Roles.RcmManager];
     private const string PaymentSource = "dbo.FACT_CC_Claims_Payment_Count via reporting view";
