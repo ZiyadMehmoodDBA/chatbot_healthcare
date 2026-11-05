@@ -38,6 +38,9 @@
                       @for (c of r.columns; track c.name) {
                         <th scope="col" [class.num]="isNumeric(c)">{{ c.label }}</th>
                       }
+                      @if (canDrillTable(r)) {
+                        <th scope="col"><span class="sr-only">Month by month</span></th>
+                      }
                     </tr>
                   </thead>
                   <tbody>
@@ -45,6 +48,14 @@
                       <tr>
                         @for (c of r.columns; track c.name; let i = $index) {
                           <td [class.num]="isNumeric(c)">{{ cell(c, row[i]) }}</td>
+                        }
+                        @if (canDrillTable(r)) {
+                          <td>
+                            @if (canDrillRow(r, row)) {
+                              <button type="button" class="link" [disabled]="loading() || streaming()"
+                                (click)="drill($index + 1)">Month by month</button>
+                            }
+                          </td>
                         }
                       </tr>
                     } @empty {

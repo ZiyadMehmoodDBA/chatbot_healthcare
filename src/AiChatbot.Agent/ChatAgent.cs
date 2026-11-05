@@ -153,6 +153,13 @@ public sealed class ChatAgent(
                 yield break;
             }
 
+            if (decision is DrillDecision drillDecision)
+            {
+                turn.Trace.Add(new TraceStep("decision", "Drill", "ok", Detail: drillDecision.Reason));
+                yield return await DrillAsync(conversationId, prepared.Text, drillDecision, turn, ct);
+                yield break;
+            }
+
             if (decision is SnapshotDecision snap)
             {
                 turn.Trace.Add(new TraceStep("decision", "Snapshot", "ok", Detail: snap.Reason));
@@ -329,6 +336,32 @@ public sealed class ChatAgent(
         store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question),
             new ChatMessage(ChatRole.Assistant, error is not null ? error : $"Looked up the patient billing balance for {p.Token}."));
         _memory.AddTurn(conversationId, question, kind, answer, digests, rcm.UtcNow);
+        return safety.Finalize(conversationId, answer, new Dictionary<string, string>());
+    }
+
+    // One row of the last table, opened month by month. Run by the server with the key it remembered; no model involved.
+    private async Task<string> DrillAsync(Guid conversationId, string question, DrillDecision d, ChatTurn turn, CancellationToken ct)
+    {
+        var timer = Stopwatch.StartNew();
+        var (report, error) = await rcm!.RunDrillAsync(turn, d.ReportId, d.Request, ct);
+        turn.Trace.Add(new TraceStep("tool", "Drill:" + d.ReportId, error is null ? "ok" : "error", timer.ElapsedMilliseconds,
+            report is null ? null : $"rows={report.Evidence.RowCount}"));
+        var digests = new List<ReportDigest>();
+        string answer;
+        if (report is null) answer = error!;
+        else
+        {
+            var name = ReportCatalog.Find(d.ReportId)?.Name ?? d.ReportId;
+            // Marked so the UI and the session know this table came from a row: the source table stays drillable
+            report = report with { Evidence = report.Evidence with { Filters = new Dictionary<string, string>(report.Evidence.Filters) { ["drill"] = "true" } } };
+            var digest = ReportDigests.From(report, name) with { OpenedFromRow = true };
+            digests.Add(digest);
+            turn.Reports.Add(report);
+            answer = $"{digest.Headline} Shown for the {d.Label}.";
+        }
+        store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question),
+            new ChatMessage(ChatRole.Assistant, report is null ? answer : $"Opened one row month by month ({d.Label})."));
+        _memory.AddTurn(conversationId, question, digests.Count > 0 ? TurnKind.Report : TurnKind.Refused, answer, digests, rcm.UtcNow);
         return safety.Finalize(conversationId, answer, new Dictionary<string, string>());
     }
 

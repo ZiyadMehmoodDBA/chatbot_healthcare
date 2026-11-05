@@ -167,6 +167,30 @@ public sealed class RcmReportTools
 
     public int MaxTopN => _broker.MaxTopN;
 
+    // A drill-down into one row of the last table. Not a model tool: the key comes from the server's own record of that table.
+    public async Task<(ReportResult? Report, string? Error)> RunDrillAsync(
+        ChatTurn turn, string reportId, ReportRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            return (await _broker.RunAsync(turn.Actor, reportId, request, "run", turn.CorrelationId, ct), null);
+        }
+        catch (ReportException ex)
+        {
+            return (null, ex.Kind switch
+            {
+                ReportErrorKind.Forbidden => "That row is outside the practices you can see, or your role cannot run this report.",
+                ReportErrorKind.Unauthenticated => "Please sign in again.",
+                ReportErrorKind.Invalid => ex.Message,
+                _ => "I couldn't reach the reporting data just now. Please try again shortly.",
+            });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return (null, "I couldn't reach the reporting data just now. Please try again shortly.");
+        }
+    }
+
     // A period comparison. Not a model tool: the server runs both periods through the broker. Error text is fixed.
     public async Task<(ReportResult? Report, string? Error)> RunComparisonAsync(
         ChatTurn turn, string reportId, ReportRequest current, ReportRequest prior, IReadOnlyList<string> caveats,

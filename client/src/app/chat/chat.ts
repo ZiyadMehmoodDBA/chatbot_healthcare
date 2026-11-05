@@ -1,4 +1,4 @@
-import { Component, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatService, ReportColumn, ReportResult } from '../core/chat.service';
@@ -11,6 +11,18 @@ interface Message {
   durationMs?: number;
   reports?: ReportResult[];
 }
+
+// Tables that can be opened month by month, and the column holding each row's code. The server holds the real rule
+// and the keys; this only decides where to show the button.
+const DRILL_KEY: Record<string, string> = {
+  'payments-by-payer': 'payerId',
+  'payments-by-practice': 'practiceCode',
+  'claim-volume': 'providerId',
+  'claim-volume-by-practice': 'practiceCode',
+  'charges-payments-by-practice': 'practiceCode',
+  'denials-by-payer': 'payerId',
+  'resubmissions-by-payer': 'payerId',
+};
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -63,6 +75,27 @@ export class Chat {
   }
 
   protected readonly exportError = signal('');
+
+  // Only the newest table can be drilled: the server remembers the rows of the last report only
+  private readonly latestReport = computed(() => {
+    // Tables opened from a row do not count: their source table stays the one to drill
+    const all = this.messages().flatMap((m) => m.reports ?? []).filter((r) => !r.evidence.filters['drill']);
+    return all.length ? all[all.length - 1] : undefined;
+  });
+
+  protected canDrillTable(r: ReportResult): boolean {
+    return r === this.latestReport() && !r.evidence.filters['comparison'] && r.evidence.reportId in DRILL_KEY;
+  }
+
+  protected canDrillRow(r: ReportResult, row: unknown[]): boolean {
+    const at = r.columns.findIndex((c) => c.name === DRILL_KEY[r.evidence.reportId]);
+    return at >= 0 && /^[0-9]+$/.test(String(row[at] ?? ''));
+  }
+
+  protected drill(rowNumber: number) {
+    this.draft = `drill into row ${rowNumber}`;
+    void this.send();
+  }
 
   protected async download(report: ReportResult) {
     this.exportError.set('');

@@ -64,6 +64,8 @@ public class ConversationTests
             if (FailViews.Any(v => q.Sql.Contains(v))) throw new ReportException(ReportErrorKind.Unavailable, "The reporting data source is unavailable");
             Queries.Add(q);
             var top = q.Sql.Contains("TOP (@");
+            if (q.Sql.Contains("CONVERT(char(7)"))
+                return Rows(["2026-05", 3L, 100m, 20m, 120m]);
             if (q.Sql.Contains("vw_Rpt_PatientBilling"))
             {
                 if (!HasPatient) return Rows();
@@ -549,6 +551,139 @@ public class ConversationTests
         var (recap, _) = await rig.Say("what was my first question?", Leader);
 
         Assert.Contains("how are we doing", recap);
+    }
+
+    // ----- drill-down: "drill into row N" of the last table -----
+
+    private static Rig WithPayerTable()
+        => Build(ProviderKind.Local, Call(RcmReportTools.PaymentsByPayer, May), Text("Top payer {PAYER_TOP_NAME}."));
+
+    [Fact]
+    public async Task Drilling_into_a_row_runs_the_month_view_for_that_payer_with_no_model_call()
+    {
+        var rig = WithPayerTable();
+        await rig.Say("show payments by payer for last month");
+        var rounds = rig.Client.Rounds.Count;
+
+        var (text, turn) = await rig.Say("drill into row 1");
+
+        Assert.Equal(rounds, rig.Client.Rounds.Count);
+        var report = Assert.Single(turn.Reports);
+        Assert.Equal("payments-by-month", report.Evidence.ReportId);
+        Assert.Equal("7", report.Evidence.Filters["payerId"]);
+        Assert.Equal("2026-05-01", report.Evidence.Filters["startDate"]);
+        Assert.Contains("payer in row 1", text);
+        // the key reached SQL as a bound parameter, next to the actor's own practice scope
+        var q = rig.Exec.Queries[^1];
+        Assert.Contains(q.Parameters, x => x.Name == "@payerId" && (long)x.Value == 7);
+        Assert.Contains(q.Parameters, x => x.Name == "@p0" && (long)x.Value == 10);
+    }
+
+    [Theory]
+    [InlineData("drill down on row 1")]
+    [InlineData("break down row 1")]
+    [InlineData("monthly trend for row 1")]
+    public async Task Several_phrasings_open_a_row(string phrase)
+    {
+        var rig = WithPayerTable();
+        await rig.Say("show payments by payer for last month");
+
+        var (_, turn) = await rig.Say(phrase);
+
+        Assert.Equal("payments-by-month", Assert.Single(turn.Reports).Evidence.ReportId);
+    }
+
+    [Fact]
+    public async Task A_row_number_past_the_table_is_asked_again_not_guessed()
+    {
+        var rig = WithPayerTable();
+        await rig.Say("show payments by payer for last month");
+
+        var (text, turn) = await rig.Say("drill into row 9");
+
+        Assert.Contains("has 1 rows", text);
+        Assert.Empty(turn.Reports);
+    }
+
+    [Fact]
+    public async Task Drill_with_no_drillable_table_says_what_to_run_first()
+    {
+        var rig = Build();
+
+        var (text, turn) = await rig.Say("drill into row 2");
+
+        Assert.Contains("Run one of those first", text);
+        Assert.Empty(turn.Reports);
+        Assert.Empty(rig.Exec.Queries);
+    }
+
+    [Fact]
+    public async Task A_table_with_no_drill_path_cannot_be_drilled()
+    {
+        var rig = Build(ProviderKind.Local, Call(RcmReportTools.InsuranceAging, ("asOfDate", "2026-06-05")), Text("Largest {AGING_TOP_NAME}."));
+        await rig.Say("show insurance aging");
+
+        var (text, turn) = await rig.Say("drill into row 1");
+
+        Assert.Contains("Run one of those first", text);
+        Assert.Empty(turn.Reports);
+    }
+
+    [Fact]
+    public async Task After_a_drill_the_source_table_stays_drillable_and_the_month_table_is_marked()
+    {
+        var rig = WithPayerTable();
+        await rig.Say("show payments by payer for last month");
+        var (_, first) = await rig.Say("drill into row 1");
+
+        var (_, second) = await rig.Say("drill into row 1");
+
+        Assert.Equal("true", Assert.Single(first.Reports).Evidence.Filters["drill"]);
+        Assert.Equal("payments-by-month", Assert.Single(second.Reports).Evidence.ReportId);
+    }
+
+    [Fact]
+    public async Task A_report_asked_for_after_a_drill_replaces_the_drillable_table()
+    {
+        var rig = Build(ProviderKind.Local,
+            Call(RcmReportTools.PaymentsByPayer, May), Text("Top payer {PAYER_TOP_NAME}."),
+            Call(RcmReportTools.InsuranceAging, ("asOfDate", "2026-06-05")), Text("Largest {AGING_TOP_NAME}."));
+        await rig.Say("show payments by payer for last month");
+        await rig.Say("drill into row 1");
+        await rig.Say("show insurance aging");
+
+        var (text, turn) = await rig.Say("drill into row 1");
+
+        Assert.Contains("Run one of those first", text);
+        Assert.Empty(turn.Reports);
+    }
+
+    [Fact]
+    public async Task A_new_report_replaces_the_rows_the_drill_points_at()
+    {
+        var rig = Build(ProviderKind.Local,
+            Call(RcmReportTools.PaymentsByPayer, May), Text("Top payer {PAYER_TOP_NAME}."),
+            Call(RcmReportTools.InsuranceAging, ("asOfDate", "2026-06-05")), Text("Largest {AGING_TOP_NAME}."));
+        await rig.Say("show payments by payer for last month");
+        await rig.Say("show insurance aging");
+
+        var (text, turn) = await rig.Say("drill into row 1");
+
+        Assert.Contains("Run one of those first", text);
+        Assert.Empty(turn.Reports);
+    }
+
+    [Fact]
+    public void Only_numeric_keys_are_remembered_so_a_name_can_never_become_a_filter()
+    {
+        var def = ReportCatalog.Find(ReportCatalog.PaymentsByPayer)!;
+        var evidence = new ReportEvidence(def.Id, "v", "Draft", "s", "posting", "p",
+            new Dictionary<string, string> { ["startDate"] = "2026-05-01", ["endDate"] = "2026-05-31" }, 2, false, DateTime.UtcNow, [], null);
+        var r = new ReportResult(def.Columns, [["", "All payers", 1L, 1m, 1m, 2m], ["7; DROP TABLE x", "Evil", 1L, 1m, 1m, 2m]], evidence);
+
+        var target = DrillPlanner.For(r);
+
+        Assert.Null(target); // no row has a purely numeric key
     }
 
     [Fact]

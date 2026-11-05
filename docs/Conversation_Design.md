@@ -21,6 +21,7 @@ decision, each decision is testable offline, and the patient path never passes p
 | 3 | Answer to a question the bot asked | See patient flow below | No |
 | 4 | Statement, patient balance, patient account, or an account number in the text | Patient flow | No |
 | 5 | A period comparison ("payments this month vs last month", "denials Q1 vs Q2", "vs the same quarter last year") | Server runs the report for both periods, table with change, sentence written from the rows | No |
+| 4b | "Drill into row 3" after a payer, practice or provider table | Server opens that row month by month (fixed parameterized query, actor scope) | No |
 | 5a | A business snapshot ("how are we doing", "executive summary", "key metrics") | Server compares payments, claim volume, denials, A/R and days to bill for the period against the one before (default: last month vs the month before); one line per report plus tables | No |
 | 6 | Everything else | Coordinator plan (Single, Multi, Open, Unsupported) and the model with its tools. Named periods in the question are turned into exact dates and given to the model. | Yes |
 

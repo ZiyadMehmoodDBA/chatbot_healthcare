@@ -11,7 +11,7 @@ public static class ReportDigests
     {
         var e = r.Evidence;
         var through = e.DataThrough is { } d ? $" Data through {d:yyyy-MM-dd}." : "";
-        return new ReportDigest(e.ReportId, name, e.Period, r.Rows.Count, Headline(r) + through);
+        return new ReportDigest(e.ReportId, name, e.Period, r.Rows.Count, Headline(r) + through, DrillPlanner.For(r));
     }
 
     public static string Headline(ReportResult r)

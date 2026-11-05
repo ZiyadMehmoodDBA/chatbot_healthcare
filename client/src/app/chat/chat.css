@@ -254,3 +254,12 @@ td.empty {
   margin: 0.25rem 0 0;
   padding-left: 1.1rem;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
