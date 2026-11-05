@@ -55,12 +55,19 @@ public static class ReportEndpoints
         g.MapGet("/", (HttpContext ctx, IActorProvider who, ReportBroker broker, IReportAudit audit) =>
             ActorGate.Deny(ctx, who.Current, audit, "catalog", "list") ?? Results.Ok(broker.CatalogFor(who.Current!)));
 
+        // Patient-level reports exist only in the chat flow: no generic run, no CSV export of one patient's lines
+        static bool ChatOnly(string id) => ReportCatalog.Find(id)?.PatientLevel == true;
+
         g.MapPost("/{id}/run", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker, IReportAudit audit)
-            => ActorGate.Deny(ctx, who.Current, audit, ReportCatalog.AuditId(id), "run") ?? await Handle(async () => Results.Ok(
+            => ActorGate.Deny(ctx, who.Current, audit, ReportCatalog.AuditId(id), "run")
+               ?? (ChatOnly(id) ? Results.Json(new { error = "Unknown report" }, statusCode: 404) : null)
+               ?? await Handle(async () => Results.Ok(
                 await broker.RunAsync(who.Current, id, body.ToRequest(), "run", ctx.TraceIdentifier, ctx.RequestAborted))));
 
         g.MapPost("/{id}/export", async (string id, ReportRunBody body, HttpContext ctx, IActorProvider who, ReportBroker broker, IReportAudit audit)
-            => ActorGate.Deny(ctx, who.Current, audit, ReportCatalog.AuditId(id), "export") ?? await Handle(async () =>
+            => ActorGate.Deny(ctx, who.Current, audit, ReportCatalog.AuditId(id), "export")
+               ?? (ChatOnly(id) ? Results.Json(new { error = "Unknown report" }, statusCode: 404) : null)
+               ?? await Handle(async () =>
             {
                 // Export re-runs the report so authorization and audit are applied again at download time
                 var result = await broker.RunAsync(who.Current, id, body.ToRequest(), "export", ctx.TraceIdentifier, ctx.RequestAborted);

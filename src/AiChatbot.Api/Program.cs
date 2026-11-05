@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.DataProtection;
 using System.Diagnostics;
 using System.Text.Json;
 using AiChatbot.Agent;
+using AiChatbot.Agent.Conversation;
 using AiChatbot.Agent.Tools;
 using AiChatbot.Data;
 using AiChatbot.Llm;
@@ -11,6 +12,7 @@ using AiChatbot.Safety;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IConversationStore, InMemoryConversationStore>();
+builder.Services.AddSingleton<ISessionMemory, InMemorySessionMemory>();
 builder.Services.AddSafety(builder.Configuration);
 builder.Services.AddDataProtection().SetApplicationName("AiChatbot");
 builder.Services.AddReportData(

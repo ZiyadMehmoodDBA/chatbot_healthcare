@@ -10,6 +10,12 @@ public sealed class ReportServiceOptions
 {
     public string PaymentsView { get; set; } = "reporting.vw_Rpt_Payments";
     public string InsuranceArView { get; set; } = "reporting.vw_Rpt_InsuranceAr";
+    public string ClaimVolumeView { get; set; } = "reporting.vw_Rpt_ClaimVolume";
+    public string DaysToBillView { get; set; } = "reporting.vw_Rpt_DaysToBill";
+    public string DenialsView { get; set; } = "reporting.vw_Rpt_Denials";
+    public string PatientBillingView { get; set; } = "reporting.vw_Rpt_PatientBilling";
+    // Claim lines shown for one patient account; the totals row always covers every line
+    public int MaxPatientRows { get; set; } = 200;
     public int CommandTimeoutSeconds { get; set; } = 30;
     public int MaxRangeDays { get; set; } = 366;
     public int DefaultTopN { get; set; } = 10;
@@ -71,7 +77,7 @@ public sealed class ReportBroker(
     private readonly Func<DateTime> _now = clock ?? (() => DateTime.UtcNow);
 
     public IReadOnlyList<ReportDefinition> CatalogFor(Actor actor)
-        => ReportCatalog.All.Where(r => r.AllowedRoles.Contains(actor.Role)).ToList();
+        => ReportCatalog.All.Where(r => !r.PatientLevel && r.AllowedRoles.Contains(actor.Role)).ToList();
 
     // action: "run" or "export". Export goes through the same checks again.
     public async Task<ReportResult> RunAsync(
@@ -101,11 +107,25 @@ public sealed class ReportBroker(
             if (request.ProviderId is not null) filters["providerId"] = request.ProviderId.Value.ToString(CultureInfo.InvariantCulture);
 
             ReportQuery query;
+            ReportQuery? extra = null;
             string period;
-            if (def.Id == ReportCatalog.InsuranceAging)
+            DateOnly? periodEnd = request.EndDate;
+            if (def.Id == ReportCatalog.PatientBilling)
+            {
+                if (request.AccountNumber is not { } account || account <= 0)
+                    throw new ReportException(ReportErrorKind.Invalid, "A patient account number is required");
+                // The number itself never reaches evidence or audit: a short hash lets support match repeat lookups
+                filters["accountRef"] = AccountRef(account);
+                period = "current balance";
+                periodEnd = null;
+                query = _queries.PatientLines(account, practices, options);
+                extra = _queries.PatientTotals(account, practices, options);
+            }
+            else if (def.Id == ReportCatalog.InsuranceAging)
             {
                 var asOf = AsOf(request);
                 period = $"as of {asOf:yyyy-MM-dd}";
+                periodEnd = asOf;
                 filters["asOfDate"] = asOf.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 filters["topN"] = topN.ToString(CultureInfo.InvariantCulture);
                 query = _queries.InsuranceAging(asOf, practices, request.PayerId, topN, options);
@@ -116,23 +136,41 @@ public sealed class ReportBroker(
                 period = $"{start:yyyy-MM-dd} to {end:yyyy-MM-dd}";
                 filters["startDate"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 filters["endDate"] = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                if (def.Id == ReportCatalog.InsuranceVsPatient)
-                    query = _queries.InsuranceVsPatient(basis, start, end, practices, request.PayerId, request.ProviderId, options);
-                else
+                if (def.Id != ReportCatalog.InsuranceVsPatient) filters["topN"] = topN.ToString(CultureInfo.InvariantCulture);
+                switch (def.Id)
                 {
-                    filters["topN"] = topN.ToString(CultureInfo.InvariantCulture);
-                    query = _queries.PaymentsByPayer(basis, start, end, practices, request.ProviderId, topN, options);
+                    case ReportCatalog.InsuranceVsPatient:
+                        query = _queries.InsuranceVsPatient(basis, start, end, practices, request.PayerId, request.ProviderId, options);
+                        break;
+                    case ReportCatalog.PaymentsByPayer:
+                        query = _queries.PaymentsByPayer(basis, start, end, practices, request.ProviderId, topN, options);
+                        break;
+                    case ReportCatalog.ClaimVolume:
+                        query = _queries.ClaimVolume(start, end, practices, request.ProviderId, topN, options);
+                        break;
+                    case ReportCatalog.DaysToBill:
+                        query = _queries.DaysToBill(start, end, practices, request.PayerId, topN, options);
+                        extra = _queries.DaysToBillOverall(start, end, practices, request.PayerId, options);
+                        break;
+                    case ReportCatalog.Denials:
+                        query = _queries.Denials(start, end, practices, request.PayerId, topN, options);
+                        extra = _queries.DenialsOverall(start, end, practices, request.PayerId, options);
+                        break;
+                    default:
+                        throw new ReportException(ReportErrorKind.NotFound, "Unknown report");
                 }
             }
 
             var raw = await executor.ExecuteAsync(query, ct);
+            var extraRows = extra is null ? null : await executor.ExecuteAsync(extra, ct);
             var truncated = raw.Count > query.MaxRows;
-            var rows = raw.Take(query.MaxRows).Select(r => Shape(def.Id, r)).ToList();
+            var rows = ShapeAll(def.Id, raw.Take(query.MaxRows).ToList(), extraRows);
             var through = await DataThroughAsync(def.Id, practices, ct);
             var caveats = def.Caveats.ToList();
-            var periodEnd = def.Id == ReportCatalog.InsuranceAging ? AsOf(request) : request.EndDate;
             if (through is { } t && periodEnd is { } pe && pe > t)
                 caveats.Insert(0, $"The source data ends {t:yyyy-MM-dd}, before the end of the requested period; later activity is not included.");
+            if (truncated && def.Id == ReportCatalog.PatientBilling)
+                caveats.Insert(0, $"Showing the newest {options.MaxPatientRows} claim lines; the total row covers every line.");
             var evidence = new ReportEvidence(
                 def.Id, def.MetricVersion, def.ApprovalStatus, def.Source, basis, period, filters,
                 rows.Count, truncated, _now(), caveats, through);
@@ -185,14 +223,48 @@ public sealed class ReportBroker(
         return (s, e);
     }
 
-    // Sums come from SQL; shares, totals and differences are computed here in decimal, never by the model
+    // First 10 hex characters of a SHA-256 of the account number: enough to spot a repeat lookup, useless as an identifier
+    public static string AccountRef(long account)
+        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(account.ToString(CultureInfo.InvariantCulture))))[..10].ToLowerInvariant();
+
+    // Sums come from SQL; shares, totals and differences are computed here in decimal, never by the model.
+    // Reports with an overall figure or a totals row take it from the second query.
+    private static List<IReadOnlyList<object?>> ShapeAll(string id, List<object?[]> raw, IReadOnlyList<object?[]>? extra)
+    {
+        var rows = raw.Select(r => Shape(id, r)).ToList();
+        switch (id)
+        {
+            case ReportCatalog.DaysToBill when extra is { Count: > 0 } && Int(extra[0][0]) > 0:
+                rows.Insert(0, ["", "All payers", Int(extra[0][0]), Dec(extra[0][1]), Int(extra[0][2])]);
+                break;
+            case ReportCatalog.Denials when extra is { Count: > 0 } && Int(extra[0][0]) > 0:
+                rows.Insert(0, ["All", "All statuses and reasons", Int(extra[0][0]), Int(extra[0][1]), Int(extra[0][2])]);
+                break;
+            case ReportCatalog.PatientBilling when rows.Count > 0 && extra is { Count: > 0 }:
+                var t = extra[0];
+                rows.Add(["Total", $"{Int(t[1]).ToString("N0", CultureInfo.InvariantCulture)} claim{(Int(t[1]) == 1 ? "" : "s")}", Int(t[0]), "", "", "", "",
+                    Dec(t[2]), Dec(t[3]), Dec(t[4]), Dec(t[5]), Dec(t[6]), Dec(t[7])]);
+                break;
+        }
+        return rows;
+    }
+
     private static IReadOnlyList<object?> Shape(string id, object?[] r) => id switch
     {
         ReportCatalog.InsuranceVsPatient => InsuranceVsPatientRow(r),
         ReportCatalog.PaymentsByPayer => [Text(r[0]), Text(r[1]), Int(r[2]), Dec(r[3]), Dec(r[4]), Dec(r[3]) + Dec(r[4])],
+        ReportCatalog.ClaimVolume => [Text(r[0]), Text(r[1]), Text(r[2]), Int(r[3]), Int(r[4]), Dec(r[5])],
+        ReportCatalog.DaysToBill => [Text(r[0]), Text(r[1]), Int(r[2]), Dec(r[3]), Int(r[4])],
+        ReportCatalog.Denials => [Text(r[0]), Text(r[1]), Int(r[2]), Int(r[3]), Int(r[4])],
+        ReportCatalog.PatientBilling => [Text(r[0]), Text(r[1]), Int(r[2]), Day(r[3]), Text(r[4]), Day(r[5]), Text(r[6]),
+            Dec(r[7]), Dec(r[8]), Dec(r[9]), Dec(r[10]), Dec(r[11]), Dec(r[12])],
         _ => [Text(r[0]), Text(r[1]), Int(r[2]), Dec(r[3]), Dec(r[4]), Dec(r[5]), Dec(r[6]), Dec(r[7]), Dec(r[8]),
               Dec(r[3]) + Dec(r[4]) + Dec(r[5]) + Dec(r[6]) + Dec(r[7]) + Dec(r[8])],
     };
+
+    private static string Day(object? v)
+        => v is null ? "" : Convert.ToDateTime(v, CultureInfo.InvariantCulture).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static object?[] InsuranceVsPatientRow(object?[] r)
     {

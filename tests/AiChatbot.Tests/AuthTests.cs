@@ -209,7 +209,23 @@ public class AzureAdPipelineTests : IDisposable
     {
         var res = await Get(Token());
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
-        Assert.Contains("insurance-ar-aging", await res.Content.ReadAsStringAsync());
+        var body = await res.Content.ReadAsStringAsync();
+        Assert.Contains("insurance-ar-aging", body);
+        // Patient-level lookups exist only in the chat flow
+        Assert.DoesNotContain("patient-billing-balance", body);
+    }
+
+    [Theory]
+    [InlineData("run")]
+    [InlineData("export")]
+    public async Task The_patient_level_report_has_no_generic_run_or_export_endpoint(string action)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, $"/api/reports/patient-billing-balance/{action}")
+        {
+            Content = JsonContent.Create(new { startDate = "2026-05-01", endDate = "2026-05-31" }),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token());
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(req)).StatusCode);
     }
 
     [Fact]

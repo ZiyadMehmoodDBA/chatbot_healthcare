@@ -228,7 +228,7 @@ public class RcmChatTests
     }
 
     [Fact]
-    public async Task Rcm_mode_offers_only_the_three_report_tools_and_todays_date()
+    public async Task Rcm_mode_offers_only_the_report_tools_and_todays_date()
     {
         var client = new ScriptedClient(Text("hi"));
         var agent = Make(client, ProviderKind.Local, out _, out _);
@@ -236,7 +236,9 @@ public class RcmChatTests
         await Run(agent, Guid.NewGuid(), "hello", new ChatTurn(Manager, "c"));
 
         var names = client.LastOptions!.Tools!.Select(t => t.Name).Order().ToArray();
-        Assert.Equal(["GetInsuranceArAging", "GetInsuranceVsPatientPayments", "GetPaymentsByPayer"], names);
+        Assert.Equal(["GetClaimVolume", "GetDaysToBill", "GetDenialAnalysis", "GetInsuranceArAging", "GetInsuranceVsPatientPayments", "GetPaymentsByPayer"], names);
+        // The patient lookup is never a model tool
+        Assert.DoesNotContain(names, n => n.Contains("Patient", StringComparison.Ordinal) && n != "GetInsuranceVsPatientPayments");
         Assert.Contains("Today is 2026-10-29", client.Rounds[0][0].Text);
     }
 

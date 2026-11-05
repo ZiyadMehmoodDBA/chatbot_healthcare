@@ -285,10 +285,10 @@ public class ReportingTests
     // ----- catalog -----
 
     [Fact]
-    public void Catalog_has_three_reports_with_unique_ids_and_caveats()
+    public void Catalog_has_seven_reports_with_unique_ids_and_caveats()
     {
-        Assert.Equal(3, ReportCatalog.All.Count);
-        Assert.Equal(3, ReportCatalog.All.Select(r => r.Id).Distinct().Count());
+        Assert.Equal(7, ReportCatalog.All.Count);
+        Assert.Equal(7, ReportCatalog.All.Select(r => r.Id).Distinct().Count());
         Assert.All(ReportCatalog.All, r => Assert.NotEmpty(r.Caveats));
     }
 
@@ -296,7 +296,9 @@ public class ReportingTests
     public void Catalog_lists_only_reports_the_role_may_run()
     {
         var (b, _, _) = Make();
-        Assert.Equal(3, b.CatalogFor(Manager).Count);
+        // The patient-level report is chat-only and never listed for the report API
+        Assert.Equal(6, b.CatalogFor(Manager).Count);
+        Assert.DoesNotContain(b.CatalogFor(Manager), r => r.PatientLevel);
         Assert.Empty(b.CatalogFor(new Actor("u", "Intern", [1])));
     }
 }

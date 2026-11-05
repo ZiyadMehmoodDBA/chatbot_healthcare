@@ -12,22 +12,27 @@ public sealed class RcmReportTools
     public const string InsuranceVsPatient = "GetInsuranceVsPatientPayments";
     public const string PaymentsByPayer = "GetPaymentsByPayer";
     public const string InsuranceAging = "GetInsuranceArAging";
+    public const string ClaimVolume = "GetClaimVolume";
+    public const string DaysToBill = "GetDaysToBill";
+    public const string Denials = "GetDenialAnalysis";
 
     private const string Dates =
         "\"startDate\":{\"type\":\"string\",\"description\":\"First day, YYYY-MM-DD\"}," +
         "\"endDate\":{\"type\":\"string\",\"description\":\"Last day, YYYY-MM-DD\"}";
 
     private const string TopN =
-        "\"topN\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100,\"description\":\"How many payers to return, default 10\"}";
+        "\"topN\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100,\"description\":\"How many rows to return, default 10\"}";
 
     private const string PracticeScope = "the caller's assigned practices; never chosen by the model";
 
     private readonly Func<DateTime> _now;
+    private readonly ReportBroker _broker;
     private readonly Dictionary<string, IDomainModule> _byTool;
 
     public RcmReportTools(ReportBroker broker, Func<DateTime>? clock = null, ReportServiceOptions? options = null)
     {
         _now = clock ?? (() => DateTime.UtcNow);
+        _broker = broker;
         options ??= new ReportServiceOptions();
 
         ToolSpec Spec(string name, string domain, string reportId, string description, string properties, string[] required, int maxRows)
@@ -60,6 +65,30 @@ public sealed class RcmReportTools
                         [], options.MaxTopN), ReportCatalog.InsuranceAging, "AGING"),
                 ],
                 broker),
+            new ReportModule(
+                "claims",
+                "claim volume by practice and provider, and days to bill",
+                ["claim volume", "claims volume", "how many claims", "number of claims", "claim count", "claims by provider", "claims by practice",
+                 "claims submitted", "days to bill", "time to bill", "billing lag", "billing speed", "slow to bill"],
+                [
+                    new(Spec(ClaimVolume, "claims", ReportCatalog.ClaimVolume,
+                        "Unique claims, claim lines and charges by practice and rendering provider for a date-of-service period.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.ClaimVolume, "CLAIMS"),
+                    new(Spec(DaysToBill, "claims", ReportCatalog.DaysToBill,
+                        "Average and longest days from date of service to first submission, overall and by payer, for claims first submitted in the period.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.DaysToBill, "DTB"),
+                ],
+                broker),
+            new ReportModule(
+                "denials",
+                "denials and rejections (claim counts by status and reason, not dollars)",
+                ["denial", "denials", "denied", "deny", "rejection", "rejections", "rejected", "denial reasons"],
+                [
+                    new(Spec(Denials, "denials", ReportCatalog.Denials,
+                        "Claims with a denial or rejection status entry in the period, overall and by status and reason. Counts claims, never dollars.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.Denials, "DENIAL"),
+                ],
+                broker),
         ];
         _byTool = Modules.SelectMany(m => m.Tools.Select(t => (t.Name, Module: m))).ToDictionary(x => x.Name, x => x.Module);
     }
@@ -67,6 +96,35 @@ public sealed class RcmReportTools
     public IReadOnlyList<IDomainModule> Modules { get; }
 
     public DateOnly Today => DateOnly.FromDateTime(_now());
+
+    public DateTime UtcNow => _now();
+
+    // The patient account lookup. Not a model tool: the server calls it after the decision engine has an account.
+    // Scope, role check, fixed SQL and audit all happen in the broker. Error text is fixed and safe to show the user.
+    public async Task<(ReportResult? Report, string? Error)> RunPatientBalanceAsync(
+        ChatTurn turn, long account, CancellationToken ct = default)
+    {
+        try
+        {
+            var report = await _broker.RunAsync(turn.Actor, ReportCatalog.PatientBilling,
+                new ReportRequest(AccountNumber: account), "run", turn.CorrelationId, ct);
+            return (report, null);
+        }
+        catch (ReportException ex)
+        {
+            return (null, ex.Kind switch
+            {
+                ReportErrorKind.Forbidden => "Your account isn't allowed to look up patient accounts.",
+                ReportErrorKind.Unauthenticated => "Please sign in again.",
+                ReportErrorKind.Invalid => "That account number isn't valid.",
+                _ => "I couldn't reach the billing data just now, so I can't say anything about that account. Please try again shortly.",
+            });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return (null, "I couldn't reach the billing data just now, so I can't say anything about that account. Please try again shortly.");
+        }
+    }
 
     public IReadOnlyList<AITool> Declarations => Declare(Modules);
 

@@ -196,6 +196,34 @@ internal static class Headline
                     v[$"{p}_LISTED_TOTAL"] = Money(rows.Sum(row => Convert.ToDecimal(row[9], CultureInfo.InvariantCulture)));
                 }
                 break;
+            case ReportCatalog.ClaimVolume:
+                v[$"{p}_ROWS"] = rows.Count.ToString(CultureInfo.InvariantCulture);
+                if (rows.Count > 0)
+                {
+                    v[$"{p}_TOP_PROVIDER"] = Convert.ToString(rows[0][2], CultureInfo.InvariantCulture) ?? "";
+                    v[$"{p}_TOP_CLAIMS"] = Num(rows[0][3]);
+                    v[$"{p}_LISTED_CLAIMS"] = Num(rows.Sum(row => Convert.ToInt64(row[3], CultureInfo.InvariantCulture)));
+                    v[$"{p}_LISTED_CHARGES"] = Money(rows.Sum(row => Convert.ToDecimal(row[5], CultureInfo.InvariantCulture)));
+                }
+                break;
+            case ReportCatalog.DaysToBill:
+                if (rows.Count > 0)
+                {
+                    // First row is the overall figure across payers
+                    v[$"{p}_OVERALL_CLAIMS"] = Num(rows[0][2]);
+                    v[$"{p}_OVERALL_AVG_DAYS"] = Days(rows[0][3]);
+                    v[$"{p}_OVERALL_MAX_DAYS"] = Num(rows[0][4]);
+                }
+                break;
+            case ReportCatalog.Denials:
+                if (rows.Count > 0)
+                {
+                    // First row is the overall figure; reason text stays out of the model's view (it is database text)
+                    v[$"{p}_OVERALL_CLAIMS"] = Num(rows[0][2]);
+                    v[$"{p}_OVERALL_RECORDS"] = Num(rows[0][3]);
+                    v[$"{p}_REASON_ROWS"] = (rows.Count - 1).ToString(CultureInfo.InvariantCulture);
+                }
+                break;
         }
         if (rows.Count == 0 || (reportId == ReportCatalog.InsuranceVsPatient && Convert.ToInt64(rows[0][1], CultureInfo.InvariantCulture) == 0))
             v[$"{p}_EMPTY"] = "No matching records in this period";
@@ -204,5 +232,6 @@ internal static class Headline
 
     private static string Money(object? o) => Convert.ToDecimal(o, CultureInfo.InvariantCulture).ToString("N2", CultureInfo.InvariantCulture);
     private static string Num(object? o) => Convert.ToInt64(o, CultureInfo.InvariantCulture).ToString("N0", CultureInfo.InvariantCulture);
+    private static string Days(object? o) => Convert.ToDecimal(o, CultureInfo.InvariantCulture).ToString("0.0", CultureInfo.InvariantCulture);
     private static string Pct(object? o) => o is null ? "n/a" : Convert.ToDecimal(o, CultureInfo.InvariantCulture).ToString("0.##", CultureInfo.InvariantCulture) + "%";
 }

@@ -1,0 +1,4476 @@
+{
+  "version": "0.1",
+  "referenceNote": "Standard names and issuers are given from general knowledge of the published programmes. Confirm the current specification, version and measure year with the clinical owner before any figure is called official.",
+  "domains": [
+    {
+      "id": "revenue",
+      "name": "Revenue and collections",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "receivables",
+      "name": "Accounts receivable",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "denials",
+      "name": "Denials and rejections",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "billing-speed",
+      "name": "Billing speed",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "volume",
+      "name": "Volume and productivity",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "payers",
+      "name": "Payer performance",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "practices",
+      "name": "Practices, facilities, providers",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "patient-balance",
+      "name": "Patient responsibility",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "trust",
+      "name": "Trust and control",
+      "area": "revenue-cycle"
+    },
+    {
+      "id": "quality",
+      "name": "Quality and outcomes",
+      "area": "clinical"
+    },
+    {
+      "id": "safety",
+      "name": "Patient safety",
+      "area": "clinical"
+    },
+    {
+      "id": "access",
+      "name": "Access and throughput",
+      "area": "clinical"
+    },
+    {
+      "id": "utilization",
+      "name": "Utilization and volume",
+      "area": "clinical"
+    },
+    {
+      "id": "cost",
+      "name": "Cost and efficiency",
+      "area": "clinical"
+    },
+    {
+      "id": "population",
+      "name": "Population health and chronic care",
+      "area": "clinical"
+    },
+    {
+      "id": "experience",
+      "name": "Patient experience",
+      "area": "clinical"
+    },
+    {
+      "id": "workforce",
+      "name": "Workforce and capacity",
+      "area": "clinical"
+    },
+    {
+      "id": "compliance",
+      "name": "Compliance and risk",
+      "area": "clinical"
+    },
+    {
+      "id": "documentation",
+      "name": "Documentation and coding quality",
+      "area": "clinical"
+    },
+    {
+      "id": "ancillary",
+      "name": "Pharmacy, laboratory and imaging",
+      "area": "clinical"
+    },
+    {
+      "id": "patient-level",
+      "name": "Patient-level clinical questions",
+      "area": "clinical"
+    }
+  ],
+  "questions": [
+    {
+      "id": "F1",
+      "domain": "revenue",
+      "question": "How much did we collect last month / this quarter / this year?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Sum of insurance + patient payments, posting date",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FACT_CC_Claims_Payment_Count`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "insurance-vs-patient-payments"
+      ],
+      "via": null,
+      "note": "`insurance-vs-patient-payments`",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F2",
+      "domain": "revenue",
+      "question": "How much came from insurance versus patients?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Split and percentages",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "insurance-vs-patient-payments"
+      ],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F3",
+      "domain": "revenue",
+      "question": "Which payers pay us the most?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payers ranked by payments",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "payments-by-payer"
+      ],
+      "via": null,
+      "note": "`payments-by-payer`",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F4",
+      "domain": "revenue",
+      "question": "How much did we bill (charges) last month?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Sum of charge amount, DOS",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCount.Charge_Amount` (line), `FactCPT_KPI`, `FactClaimCptReport` (2 practices only)",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F5",
+      "domain": "revenue",
+      "question": "Are collections up or down against last month / last year?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Period over period change",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "F1 with two periods",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "compare mechanism, section 6",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F6",
+      "domain": "revenue",
+      "question": "What is our net collection rate?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payments / (charges - contractual adjustments)",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI`: `Insurance_Payments`, `Patient_Payments`, `Charge_Amount`, `Contractual_Adjustments`",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F7",
+      "domain": "revenue",
+      "question": "What is our gross collection rate?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payments / charges",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F8",
+      "domain": "revenue",
+      "question": "How much did we write off or adjust?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Contractual + manual adjustments",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI`, `FactClaimCount.Amount_Adjusted`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F9",
+      "domain": "revenue",
+      "question": "How much is withheld or sitting unapplied?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "`Withheld_Amount`, `Unapplied`",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI`, `FactReportClaimPaymentDetails`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "second table is empty in dev",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F10",
+      "domain": "revenue",
+      "question": "How are payments arriving: check, EFT, card?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payments by method and source",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactReportClaimPaymentDetails`: `Payment_Method`, `Payment_Source`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "value list unknown",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F11",
+      "domain": "revenue",
+      "question": "What is our average reimbursement per claim?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payments / unique claims",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "F1",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "F12",
+      "domain": "revenue",
+      "question": "Are we getting paid what the contract expects?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payments vs expected / allowed",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI.Expected_Reimbursement`, `FactGlobalKPIClaimData.Allowed`",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A1",
+      "domain": "receivables",
+      "question": "How much is outstanding in A/R?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Total open insurance balance",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactDaysARbyPayer`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "insurance-ar-aging"
+      ],
+      "via": null,
+      "note": "`insurance-ar-aging`",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A2",
+      "domain": "receivables",
+      "question": "How old is our A/R?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Buckets 0-30 .. over 120",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "insurance-ar-aging"
+      ],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A3",
+      "domain": "receivables",
+      "question": "Which payers owe us the most?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Top payers by open balance",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "insurance-ar-aging"
+      ],
+      "via": null,
+      "note": "aging with `topN`",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A4",
+      "domain": "receivables",
+      "question": "How much A/R is over 90 / 120 days?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Sum of old buckets, share of total",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "insurance-ar-aging"
+      ],
+      "via": null,
+      "note": "read from aging rows); a dedicated share figure is BUILD",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A5",
+      "domain": "receivables",
+      "question": "What are our days in A/R (DSO)?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "A/R / average daily charges",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "A1 + F4",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A6",
+      "domain": "receivables",
+      "question": "Is A/R growing or shrinking?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "A/R at two dates",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "none: tables are truncated and reloaded each sync",
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "reportIds": [],
+      "via": null,
+      "note": "until a snapshot table exists",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A7",
+      "domain": "receivables",
+      "question": "How much patient balance is outstanding?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Sum of `Patient_Balance`",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "aggregate; not the patient lookup",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "A8",
+      "domain": "receivables",
+      "question": "How much will we likely never collect?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Bad debt estimate",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "none",
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D1",
+      "domain": "denials",
+      "question": "How many claims were denied or rejected?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Distinct claims with a status record",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactPayerRejectionReason`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "denial-analysis"
+      ],
+      "via": null,
+      "note": "`denial-analysis`, counts",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D2",
+      "domain": "denials",
+      "question": "Why are claims being denied?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Claims by status and reason",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "denial-analysis"
+      ],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D3",
+      "domain": "denials",
+      "question": "Which payers deny the most?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Denials by payer",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same, `Ins_Payer_Id`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "the report has a payer filter, no payer grouping",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D4",
+      "domain": "denials",
+      "question": "What is our denial rate?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Denied claims / submitted claims",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactFinancialClass`: `Totaldenials`, `TotalClaims`; submissions history",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": "denominator and period",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D5",
+      "domain": "denials",
+      "question": "How much money is tied up in denials?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Outstanding balance on claims with a denial status",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactGlobalKPIClaimData.Outstanding_Amount` + status",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": ". Never call it \"denied dollars\": no such column exists.",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D6",
+      "domain": "denials",
+      "question": "How many denials did we appeal or recover?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Appeals, recoveries",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "none",
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D7",
+      "domain": "denials",
+      "question": "Which denials are new this week?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Denials by entry date",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`Fact_Frozen_Denial_Data` (production only)",
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "reportIds": [],
+      "via": null,
+      "note": "in dev",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "D8",
+      "domain": "denials",
+      "question": "How many claims were resubmitted?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Resubmissions by type",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimResubmission`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "S1",
+      "domain": "billing-speed",
+      "question": "How long does it take us to bill?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Average and longest days, service to first submission",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactDaysToBill`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "days-to-bill"
+      ],
+      "via": null,
+      "note": "`days-to-bill`",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "S2",
+      "domain": "billing-speed",
+      "question": "Which payers or practices are slowest to bill?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Days to bill by payer, by practice",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "days-to-bill"
+      ],
+      "via": null,
+      "note": "by payer; by practice is BUILD",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "S3",
+      "domain": "billing-speed",
+      "question": "How many claims are not yet billed?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Unbilled claim count and charges",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCptReport.Billing_Status`, `Include_in_submission`",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": "status values undocumented",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "S4",
+      "domain": "billing-speed",
+      "question": "How long from billing to payment?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Billed date to payment date",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI`, payments",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "S5",
+      "domain": "billing-speed",
+      "question": "What is our clean claim rate?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "First-pass accepted / submitted",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactGlobalKPIClaimSubmissionsHistory`",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": "do not build until the owner supplies a formula",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "S6",
+      "domain": "billing-speed",
+      "question": "How many claims did we submit last week?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Submissions by date",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactGlobalKPIClaimSubmissionsHistory`, `FactClaimResubmission`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "claims submission performance",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "V1",
+      "domain": "volume",
+      "question": "How many claims did we process?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Unique claims by period",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCount`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "claim-volume"
+      ],
+      "via": null,
+      "note": "`claim-volume`",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "V2",
+      "domain": "volume",
+      "question": "Which providers bill the most?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Claims and charges by rendering provider",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "claim-volume"
+      ],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "V3",
+      "domain": "volume",
+      "question": "Which practices are growing or shrinking?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Claims by practice over time",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "same",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "compare and trend",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "V4",
+      "domain": "volume",
+      "question": "Which procedures drive our revenue?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Charges and payments by CPT",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCptReport`, `FactCPT_KPI`, `FactGlobalKPICPTClaimData`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "CPT performance; three overlapping tables, pick one",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "V5",
+      "domain": "volume",
+      "question": "What is our case mix?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Volume by financial class",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactFinancialClass`, `FactClaimCount.Financial_Class`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "V6",
+      "domain": "volume",
+      "question": "Where do we see patients?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Volume by location and place of service",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCount.Location_Name`, `POS_Name`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "P1",
+      "domain": "payers",
+      "question": "What is our payer mix?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payments or charges by payer and by financial class",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "F3, `FactFinancialClass`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "payments-by-payer"
+      ],
+      "via": null,
+      "note": "by payer; by class is BUILD",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "P2",
+      "domain": "payers",
+      "question": "Which payer is most profitable or reliable?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Payment rate, days to pay, denial rate per payer",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "F6, S4, D4 per payer",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "P3",
+      "domain": "payers",
+      "question": "Are we dependent on one payer?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Top payer share of payments",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "F3",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "share figure on the existing report",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "P4",
+      "domain": "payers",
+      "question": "How is Medicare doing versus commercial?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Group by payer type",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`DimInsurances`, `DimFinancialClass.HCFA_Class`, `Insurance_Type`",
+      "dataClass": "Aggregate",
+      "status": "NeedsDefinition",
+      "reportIds": [],
+      "via": null,
+      "note": "Medicare mapping rule undecided",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "P5",
+      "domain": "payers",
+      "question": "Where are we paid late with interest?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Interest on claims",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimInterestReport`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "2 practices only",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "L1",
+      "domain": "practices",
+      "question": "Which practice or facility performs best?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Collections, A/R, denials, days to bill per practice",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "existing reports grouped by practice",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "practice grouping",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "L2",
+      "domain": "practices",
+      "question": "How is each provider doing?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Claims, charges, collections per provider",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCount`, `FactCPT_KPI`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [
+        "claim-volume"
+      ],
+      "via": null,
+      "note": "for claims and charges; collections are BUILD",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "L3",
+      "domain": "practices",
+      "question": "Which sales rep brings the most revenue?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Revenue by sales rep",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCptReport.Sales_Rep`, `FactFacilitySalesRep`, `DimSalesRep`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": ". Rep birth date, address and email are PHI-like and must not be exposed.",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "L4",
+      "domain": "practices",
+      "question": "How does location A compare with B?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Any metric by location",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`Location_ID`, `Practice_Location_Id`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "T1",
+      "domain": "patient-balance",
+      "question": "How much do patients owe in total?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Sum of `Patient_Balance`",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": "same as A7",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "T2",
+      "domain": "patient-balance",
+      "question": "How much do patients pay at the time of service?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Copay, deductible, coinsurance collected",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactClaimCptReport`, `FactReportClaimPaymentDetails`",
+      "dataClass": "Aggregate",
+      "status": "Planned",
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "T3",
+      "domain": "patient-balance",
+      "question": "What does this patient owe?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "One account's balance",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`FactCPT_KPI`",
+      "dataClass": "PatientLevel",
+      "status": "Available",
+      "reportIds": [
+        "patient-billing-balance"
+      ],
+      "via": null,
+      "note": "`patient-billing-balance`). A CEO normally does not ask it; staff do. See section 7.",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "Q1",
+      "domain": "trust",
+      "question": "How current is this data?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Last load date",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`DataThrough` in every report's evidence",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [],
+      "via": "Data-through date in every report's evidence",
+      "note": null,
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "Q2",
+      "domain": "trust",
+      "question": "Can I trust this number?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Approval status, caveats, definition",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "evidence on every report",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [],
+      "via": "Approval status and caveats in every report's evidence",
+      "note": "all Draft",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "Q3",
+      "domain": "trust",
+      "question": "Which numbers are official?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Approved vs draft metrics",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "metric registry",
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "reportIds": [],
+      "via": null,
+      "note": "no registry yet",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "Q4",
+      "domain": "trust",
+      "question": "Who looked at what?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Audit trail",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "`chatbot.AuditLog`",
+      "dataClass": "Aggregate",
+      "status": "Available",
+      "reportIds": [],
+      "via": "chatbot.AuditLog (not exposed in chat)",
+      "note": "not exposed to chat",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "Q5",
+      "domain": "trust",
+      "question": "Did the data load fully?",
+      "audience": [
+        "CEO",
+        "RCM manager"
+      ],
+      "keywords": [],
+      "metric": "Row counts and last sync per table",
+      "definition": "",
+      "references": [],
+      "requiredData": [],
+      "source": "ETL lineage",
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "reportIds": [],
+      "via": null,
+      "note": "needs a freshness check; loads are not transactional",
+      "closest": null,
+      "followUps": []
+    },
+    {
+      "id": "C-QL-01",
+      "domain": "quality",
+      "question": "What is our 30-day hospital-wide readmission rate?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "readmission",
+        "readmissions",
+        "readmitted",
+        "hospital-wide readmission",
+        "30-day readmission",
+        "30 day readmission"
+      ],
+      "metric": "30-day all-cause unplanned readmission rate",
+      "definition": "Unplanned inpatient readmissions within 30 days of discharge from an index admission, divided by eligible index discharges, risk-adjusted. Planned readmissions and specified exclusions are removed.",
+      "references": [
+        {
+          "title": "Hospital-Wide All-Cause Unplanned Readmission Measure (READM-30-HWR)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "admission and discharge date-times",
+        "discharge disposition",
+        "patient identifier to link stays",
+        "planned versus unplanned flag or diagnosis and procedure codes",
+        "risk-adjustment variables"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [
+        "by facility",
+        "by diagnosis group",
+        "trend by month",
+        "vs national average"
+      ],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-02",
+      "domain": "quality",
+      "question": "Which conditions drive our readmissions (heart attack, heart failure, pneumonia, COPD, hip or knee replacement, bypass)?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "hrrp",
+        "readmission penalty",
+        "heart failure readmission",
+        "pneumonia readmission",
+        "copd readmission",
+        "knee replacement readmission",
+        "hip replacement readmission"
+      ],
+      "metric": "Condition-specific 30-day readmission rates and excess readmission ratio",
+      "definition": "Readmission rates for the Medicare target conditions: acute myocardial infarction, heart failure, pneumonia, COPD, elective hip and knee replacement, and coronary artery bypass graft.",
+      "references": [
+        {
+          "title": "Hospital Readmissions Reduction Program (HRRP)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "principal diagnosis and procedure codes (ICD-10-CM, ICD-10-PCS)",
+        "admission and discharge dates",
+        "payer (Medicare fee-for-service flag)",
+        "patient identifier to link stays"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [
+        "penalty exposure",
+        "by facility"
+      ],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-03",
+      "domain": "quality",
+      "question": "What is our 30-day mortality after a heart attack, heart failure or pneumonia?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "30-day mortality",
+        "30 day mortality",
+        "mortality after heart attack",
+        "heart attack mortality",
+        "heart failure mortality",
+        "pneumonia mortality"
+      ],
+      "metric": "30-day risk-standardised mortality, by condition",
+      "definition": "Deaths from any cause within 30 days of admission for the condition, risk-standardised.",
+      "references": [
+        {
+          "title": "30-day risk-standardized mortality measures (MORT-30-AMI, MORT-30-HF, MORT-30-PN)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "admission date and principal diagnosis",
+        "date of death (hospital or linked vital-status source)",
+        "risk-adjustment variables"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-04",
+      "domain": "quality",
+      "question": "What is our in-hospital mortality rate, and is it better or worse than expected?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "mortality",
+        "mortality rate",
+        "death rate",
+        "deaths",
+        "inpatient mortality",
+        "in-hospital mortality",
+        "hospital mortality"
+      ],
+      "metric": "Observed versus expected inpatient mortality",
+      "definition": "Inpatient deaths divided by discharges, compared with the expected count from a risk model (observed/expected ratio).",
+      "references": [
+        {
+          "title": "Inpatient Quality Indicators (IQI), mortality indicators",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "discharge disposition (expired)",
+        "principal and secondary diagnoses",
+        "age, sex",
+        "admission source"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [
+        "by service line",
+        "by facility",
+        "trend"
+      ],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-05",
+      "domain": "quality",
+      "question": "Are we meeting the sepsis bundle?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "sepsis",
+        "sepsis bundle",
+        "sep-1",
+        "septic shock"
+      ],
+      "metric": "Sepsis bundle compliance rate",
+      "definition": "Share of eligible severe sepsis and septic shock cases receiving every bundle element on time (lactate, cultures, antibiotics, fluids, reassessment).",
+      "references": [
+        {
+          "title": "SEP-1 Severe Sepsis and Septic Shock: Management Bundle",
+          "body": "CMS / The Joint Commission"
+        }
+      ],
+      "requiredData": [
+        "sepsis case identification",
+        "order and administration times for lactate, blood cultures, antibiotics, fluids",
+        "triage and severe-sepsis presentation times"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-06",
+      "domain": "quality",
+      "question": "How are we doing on stroke care?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "stroke",
+        "stroke care",
+        "door to needle",
+        "thrombolytic"
+      ],
+      "metric": "Stroke measure set compliance and door-to-needle time",
+      "definition": "Share of eligible ischemic stroke patients meeting each stroke process measure; median time from arrival to thrombolytic.",
+      "references": [
+        {
+          "title": "Stroke (STK) measures",
+          "body": "The Joint Commission / CMS"
+        },
+        {
+          "title": "Get With The Guidelines-Stroke",
+          "body": "American Heart Association"
+        }
+      ],
+      "requiredData": [
+        "stroke diagnosis",
+        "arrival and treatment times",
+        "discharge medications and rehabilitation assessment"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-07",
+      "domain": "quality",
+      "question": "What is our patient safety composite score?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "patient safety composite",
+        "psi 90",
+        "psi-90",
+        "patient safety indicators",
+        "complication composite"
+      ],
+      "metric": "Patient Safety Indicator 90 composite",
+      "definition": "Weighted composite of selected patient safety indicators (for example pressure ulcer, perioperative hemorrhage, postoperative sepsis, postoperative respiratory failure, perioperative DVT/PE).",
+      "references": [
+        {
+          "title": "Patient Safety Indicator 90 (PSI 90) composite",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "inpatient claims or abstracts with diagnoses and procedures (with present-on-admission indicators)",
+        "risk-adjustment variables"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-08",
+      "domain": "quality",
+      "question": "What is our surgical complication rate?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "surgical complication",
+        "surgical complications",
+        "complication rate",
+        "post-operative complications",
+        "postoperative complications"
+      ],
+      "metric": "Surgical complication rate",
+      "definition": "Surgical cases with a defined complication within the measure window, divided by surgical cases.",
+      "references": [
+        {
+          "title": "AHRQ Patient Safety Indicators (surgical)",
+          "body": "AHRQ"
+        },
+        {
+          "title": "ACS National Surgical Quality Improvement Program (NSQIP)",
+          "body": "American College of Surgeons"
+        }
+      ],
+      "requiredData": [
+        "surgical case records with procedure codes",
+        "complication diagnoses with present-on-admission indicators",
+        "outcome follow-up dates"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-QL-09",
+      "domain": "quality",
+      "question": "Are our outcomes better or worse than similar hospitals?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "compared to other hospitals",
+        "benchmark",
+        "benchmarks",
+        "national average",
+        "peer hospitals",
+        "star rating",
+        "hospital compare"
+      ],
+      "metric": "Outcome measures against national or peer benchmark",
+      "definition": "Any quality measure shown beside a national or peer-group benchmark with the benchmark source and period.",
+      "references": [
+        {
+          "title": "Hospital Compare / Care Compare overall star rating",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "the underlying measure values",
+        "a licensed or public benchmark dataset loaded with its version and period"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-01",
+      "domain": "safety",
+      "question": "What is our hospital-acquired infection rate overall?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "infection rate",
+        "hospital acquired infection",
+        "hospital-acquired infection",
+        "hospital acquired infections",
+        "hai",
+        "infections"
+      ],
+      "metric": "Healthcare-associated infection rate and standardized infection ratio",
+      "definition": "Healthcare-associated infections per 1,000 device days or procedures, and the ratio of observed to predicted infections.",
+      "references": [
+        {
+          "title": "National Healthcare Safety Network (NHSN) Standardized Infection Ratio (SIR)",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "infection surveillance events with NHSN definitions",
+        "device days and patient days by unit",
+        "procedure counts"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-02",
+      "domain": "safety",
+      "question": "How many central line bloodstream infections have we had?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "clabsi",
+        "central line infection",
+        "central line infections",
+        "central line bloodstream",
+        "central-line"
+      ],
+      "metric": "CLABSI rate and SIR",
+      "definition": "Central line-associated bloodstream infections per 1,000 central line days.",
+      "references": [
+        {
+          "title": "NHSN CLABSI event protocol and SIR",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "CLABSI events",
+        "central line days by unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-03",
+      "domain": "safety",
+      "question": "How many catheter-associated urinary tract infections have we had?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "cauti",
+        "catheter infection",
+        "catheter infections",
+        "catheter associated",
+        "catheter-associated"
+      ],
+      "metric": "CAUTI rate and SIR",
+      "definition": "Catheter-associated urinary tract infections per 1,000 urinary catheter days.",
+      "references": [
+        {
+          "title": "NHSN CAUTI event protocol and SIR",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "CAUTI events",
+        "urinary catheter days by unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-04",
+      "domain": "safety",
+      "question": "What is our surgical site infection rate?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "ssi",
+        "surgical site infection",
+        "surgical site infections",
+        "wound infection",
+        "wound infections"
+      ],
+      "metric": "Surgical site infection rate and SIR by procedure",
+      "definition": "Surgical site infections divided by procedures in the NHSN procedure categories (for example colon surgery, abdominal hysterectomy).",
+      "references": [
+        {
+          "title": "NHSN Surgical Site Infection (SSI) event protocol and SIR",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "SSI events",
+        "operative procedure records with NHSN procedure categories",
+        "surveillance follow-up"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-05",
+      "domain": "safety",
+      "question": "How many C. difficile and MRSA infections have we had?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "c diff",
+        "c. diff",
+        "c. difficile",
+        "clostridioides",
+        "mrsa",
+        "cdi"
+      ],
+      "metric": "C. difficile and MRSA bacteremia laboratory-identified events and SIR",
+      "definition": "Hospital-onset C. difficile and MRSA bacteremia events per 10,000 patient days.",
+      "references": [
+        {
+          "title": "NHSN Multidrug-Resistant Organism and C. difficile Infection (MDRO/CDI) module",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "laboratory-identified events with specimen date and admission date",
+        "patient days by unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-06",
+      "domain": "safety",
+      "question": "How many patient falls with injury have we had?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "patient falls",
+        "fall rate",
+        "falls with injury",
+        "patient fall",
+        "inpatient falls"
+      ],
+      "metric": "Falls with injury per 1,000 patient days",
+      "definition": "Inpatient falls resulting in injury divided by patient days, by unit.",
+      "references": [
+        {
+          "title": "NDNQI falls indicators",
+          "body": "Press Ganey (NDNQI)"
+        }
+      ],
+      "requiredData": [
+        "incident reports with injury level",
+        "patient days by unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-07",
+      "domain": "safety",
+      "question": "How many pressure injuries have developed in our care?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "pressure injury",
+        "pressure injuries",
+        "pressure ulcer",
+        "pressure ulcers",
+        "bedsores",
+        "bed sores"
+      ],
+      "metric": "Hospital-acquired stage 3 or 4 pressure injury rate",
+      "definition": "Stage 3, stage 4 and unstageable pressure injuries not present on admission, per discharges.",
+      "references": [
+        {
+          "title": "Patient Safety Indicator 03 (PSI 03), Pressure Ulcer Rate",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "diagnoses with present-on-admission indicator",
+        "skin assessment documentation"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-08",
+      "domain": "safety",
+      "question": "How many medication errors and adverse drug events are we seeing?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "medication error",
+        "medication errors",
+        "adverse drug event",
+        "adverse drug events",
+        "ade",
+        "drug errors"
+      ],
+      "metric": "Medication error and adverse drug event rate by severity",
+      "definition": "Reported medication errors and adverse drug events per 1,000 patient days, categorised by harm.",
+      "references": [
+        {
+          "title": "NCC MERP Index for Categorizing Medication Errors",
+          "body": "National Coordinating Council for Medication Error Reporting and Prevention"
+        },
+        {
+          "title": "Global Trigger Tool for Measuring Adverse Events",
+          "body": "Institute for Healthcare Improvement"
+        }
+      ],
+      "requiredData": [
+        "medication event reports with harm category",
+        "medication administration records",
+        "patient days"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-09",
+      "domain": "safety",
+      "question": "Have we had any sentinel events or never events?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "sentinel event",
+        "sentinel events",
+        "never event",
+        "never events",
+        "wrong site surgery",
+        "retained surgical item"
+      ],
+      "metric": "Sentinel and never event count with review status",
+      "definition": "Count of reviewable sentinel events and serious reportable events, with root-cause-analysis status.",
+      "references": [
+        {
+          "title": "Sentinel Event Policy",
+          "body": "The Joint Commission"
+        },
+        {
+          "title": "Serious Reportable Events (never events)",
+          "body": "National Quality Forum"
+        },
+        {
+          "title": "Patient Safety Indicator 05 (retained surgical item)",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "event register with event type, date and review status"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-10",
+      "domain": "safety",
+      "question": "How is our incident reporting trending?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "incident reports",
+        "incident report",
+        "incident trend",
+        "incidents",
+        "adverse events",
+        "adverse event"
+      ],
+      "metric": "Incident reports per 1,000 patient days by category and harm",
+      "definition": "Count of safety incident reports by category and harm level, per patient days.",
+      "references": [
+        {
+          "title": "Common Formats for event reporting",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "incident reports with category, harm level, date and unit",
+        "patient days"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-11",
+      "domain": "safety",
+      "question": "Are staff cleaning their hands?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "hand hygiene",
+        "hand washing",
+        "handwashing",
+        "hand-washing"
+      ],
+      "metric": "Hand hygiene compliance rate",
+      "definition": "Observed hand hygiene opportunities with compliant action divided by observed opportunities.",
+      "references": [
+        {
+          "title": "WHO Guidelines on Hand Hygiene in Health Care",
+          "body": "World Health Organization"
+        },
+        {
+          "title": "Hand hygiene in healthcare settings",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "observation audit records with opportunity and action",
+        "unit and role"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PS-12",
+      "domain": "safety",
+      "question": "Are we preventing blood clots in surgical and medical patients?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "vte",
+        "blood clot prevention",
+        "blood clots",
+        "dvt",
+        "pulmonary embolism",
+        "venous thromboembolism"
+      ],
+      "metric": "VTE prophylaxis compliance and hospital-acquired VTE rate",
+      "definition": "Share of eligible patients with VTE prophylaxis by the day after admission; perioperative DVT or PE per discharges.",
+      "references": [
+        {
+          "title": "Venous Thromboembolism (VTE) measures",
+          "body": "The Joint Commission / CMS"
+        },
+        {
+          "title": "Patient Safety Indicator 12 (perioperative PE/DVT)",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "prophylaxis orders and administrations",
+        "diagnoses with present-on-admission indicator"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-01",
+      "domain": "access",
+      "question": "How long are patients in our emergency department?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "ed length of stay",
+        "ed wait",
+        "emergency department wait",
+        "time in the ed",
+        "ed throughput",
+        "emergency department length of stay"
+      ],
+      "metric": "Median time from ED arrival to departure",
+      "definition": "Median minutes from ED arrival to departure for discharged patients, and separately for admitted patients.",
+      "references": [
+        {
+          "title": "OP-18 Median Time from ED Arrival to ED Departure for Discharged ED Patients",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "ED arrival, provider, disposition and departure timestamps",
+        "disposition (discharged, admitted, transferred)"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [
+        "by hour of day",
+        "by acuity",
+        "trend"
+      ],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-02",
+      "domain": "access",
+      "question": "How long until a patient is seen by a provider in the ED?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "door to provider",
+        "door-to-provider",
+        "time to see a provider",
+        "provider in the ed"
+      ],
+      "metric": "Median door-to-provider time",
+      "definition": "Median minutes from ED arrival to first provider contact.",
+      "references": [
+        {
+          "title": "ED throughput measures (OP-18 family)",
+          "body": "CMS"
+        },
+        {
+          "title": "ED Benchmarking Alliance metrics",
+          "body": "EDBA"
+        }
+      ],
+      "requiredData": [
+        "ED arrival and first provider timestamps",
+        "acuity level"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-03",
+      "domain": "access",
+      "question": "What share of ED patients leave without being seen?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "left without being seen",
+        "lwbs",
+        "leave without being seen",
+        "left before being seen"
+      ],
+      "metric": "Left-without-being-seen rate",
+      "definition": "ED patients who left before a provider evaluation divided by ED arrivals.",
+      "references": [
+        {
+          "title": "OP-22 Left Without Being Seen",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "ED disposition codes",
+        "arrival counts"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-04",
+      "domain": "access",
+      "question": "How long do admitted patients board in the ED?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "ed boarding",
+        "boarding time",
+        "boarders",
+        "boarding"
+      ],
+      "metric": "ED boarding time",
+      "definition": "Median and 90th-percentile minutes from admission decision to ED departure.",
+      "references": [
+        {
+          "title": "Boarding of admitted patients in the ED (policy statement)",
+          "body": "American College of Emergency Physicians"
+        }
+      ],
+      "requiredData": [
+        "admit-decision and departure timestamps"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-05",
+      "domain": "access",
+      "question": "What is our bed occupancy?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "bed occupancy",
+        "occupancy rate",
+        "occupancy",
+        "beds available",
+        "bed availability",
+        "capacity"
+      ],
+      "metric": "Inpatient bed occupancy rate",
+      "definition": "Midnight census divided by staffed beds, by unit.",
+      "references": [
+        {
+          "title": "Occupancy rate definition",
+          "body": "AHA Annual Survey of Hospitals"
+        }
+      ],
+      "requiredData": [
+        "ADT census snapshots",
+        "staffed bed counts by unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-06",
+      "domain": "access",
+      "question": "What is our average length of stay, and is it longer than expected?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "length of stay",
+        "average length of stay",
+        "alos",
+        "average stay",
+        "gmlos",
+        "longer than expected"
+      ],
+      "metric": "Average length of stay versus geometric mean length of stay",
+      "definition": "Mean inpatient days per discharge compared with the geometric mean length of stay for the MS-DRG.",
+      "references": [
+        {
+          "title": "MS-DRG Geometric Mean Length of Stay (GMLOS), IPPS final rule tables",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "admission and discharge dates",
+        "MS-DRG per stay",
+        "service line and facility"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": "Claim volume by practice and provider is available, but billing data has no admission and discharge dates, so length of stay cannot be computed from it.",
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-07",
+      "domain": "access",
+      "question": "How many patients are discharged before noon?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "discharge before noon",
+        "discharged before noon",
+        "before noon discharge",
+        "discharge timing"
+      ],
+      "metric": "Share of discharges completed before 12:00",
+      "definition": "Discharges with a departure time before noon divided by all discharges.",
+      "references": [
+        {
+          "title": "Improving patient flow",
+          "body": "Institute for Healthcare Improvement"
+        }
+      ],
+      "requiredData": [
+        "discharge order and departure timestamps"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-08",
+      "domain": "access",
+      "question": "How long do new patients wait for an appointment?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "appointment wait",
+        "wait for an appointment",
+        "new patient wait",
+        "next available appointment",
+        "third next available",
+        "wait to be seen"
+      ],
+      "metric": "Third next available appointment and new-patient wait",
+      "definition": "Days to the third next available appointment by clinic and specialty; days from request to new-patient visit.",
+      "references": [
+        {
+          "title": "Third Next Available Appointment",
+          "body": "Institute for Healthcare Improvement"
+        }
+      ],
+      "requiredData": [
+        "appointment slots and schedule templates",
+        "appointment request and visit dates",
+        "clinic and specialty"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-09",
+      "domain": "access",
+      "question": "What is our appointment no-show rate?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "no-show",
+        "no show",
+        "no-shows",
+        "no shows",
+        "missed appointments",
+        "appointment cancellations"
+      ],
+      "metric": "No-show and late-cancellation rate",
+      "definition": "Appointments marked no-show or cancelled within the cut-off divided by scheduled appointments.",
+      "references": [
+        {
+          "title": "Practice operations benchmarks",
+          "body": "MGMA"
+        }
+      ],
+      "requiredData": [
+        "appointment status history",
+        "scheduled counts by clinic"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-10",
+      "domain": "access",
+      "question": "How well are we using our operating rooms?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "or utilization",
+        "operating room utilization",
+        "or turnover",
+        "turnover time",
+        "first case",
+        "first-case",
+        "block utilization"
+      ],
+      "metric": "Operating room utilization, first-case on-time starts and turnover time",
+      "definition": "Used minutes divided by available block minutes; share of first cases starting on time; minutes between cases.",
+      "references": [
+        {
+          "title": "Perioperative performance metrics (definitions set locally)",
+          "body": "AORN"
+        }
+      ],
+      "requiredData": [
+        "OR schedule and actual in-room and out-room times",
+        "block schedule",
+        "case counts"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-AT-11",
+      "domain": "access",
+      "question": "How many patients are we transferring out or diverting?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "diversion",
+        "ambulance diversion",
+        "transfers out",
+        "patient transfers",
+        "transfer out"
+      ],
+      "metric": "Transfers out and diversion hours",
+      "definition": "Patients transferred to another facility, and hours on diversion, with reason.",
+      "references": [
+        {
+          "title": "EMTALA obligations (transfers)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "transfer records with reason and destination",
+        "diversion log"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-UV-01",
+      "domain": "utilization",
+      "question": "How many patients did we admit, discharge and treat in the period?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "admissions",
+        "discharges",
+        "patient days",
+        "inpatient volume",
+        "inpatient admissions",
+        "how many patients"
+      ],
+      "metric": "Admissions, discharges and patient days",
+      "definition": "Count of inpatient admissions and discharges, and total patient days, by facility and service line.",
+      "references": [
+        {
+          "title": "ADT (admission, discharge, transfer) feed definitions",
+          "body": "HL7"
+        }
+      ],
+      "requiredData": [
+        "ADT events with timestamps",
+        "facility and service line"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-UV-02",
+      "domain": "utilization",
+      "question": "How many outpatient and ED visits did we have?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "outpatient visits",
+        "clinic visits",
+        "ed visits",
+        "emergency visits",
+        "visit volume",
+        "patient visits"
+      ],
+      "metric": "Outpatient and ED visit volume",
+      "definition": "Count of completed outpatient encounters and ED visits, by clinic, specialty and facility.",
+      "references": [
+        {
+          "title": "Encounter definitions",
+          "body": "HL7 FHIR R4 Encounter"
+        }
+      ],
+      "requiredData": [
+        "encounter records with class, status, date and location"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": "Claim lines by rendering provider are available in claim volume, but they count billed lines, not visits.",
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-UV-03",
+      "domain": "utilization",
+      "question": "What surgeries and procedures do we perform most?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "surgery volume",
+        "surgical volume",
+        "procedure volume",
+        "most common procedures",
+        "operations performed",
+        "surgeries"
+      ],
+      "metric": "Procedure volume by procedure and surgeon",
+      "definition": "Count of completed procedures by CPT or ICD-10-PCS code, specialty and surgeon.",
+      "references": [
+        {
+          "title": "CPT code set",
+          "body": "American Medical Association"
+        },
+        {
+          "title": "ICD-10-PCS",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "procedure records with codes, date and performing provider"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": "CPT performance from billing claims is planned (catalogue V4); it counts billed procedures, not clinical records.",
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-UV-04",
+      "domain": "utilization",
+      "question": "What is our case mix index?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "case mix",
+        "case mix index",
+        "cmi",
+        "acuity mix"
+      ],
+      "metric": "Case Mix Index",
+      "definition": "Average MS-DRG relative weight across discharges in the period.",
+      "references": [
+        {
+          "title": "MS-DRG relative weights, IPPS final rule tables",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "MS-DRG per discharge",
+        "annual relative-weight table loaded with its fiscal year"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-UV-05",
+      "domain": "utilization",
+      "question": "How much imaging and laboratory testing are we doing?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "imaging volume",
+        "lab volume",
+        "laboratory volume",
+        "radiology volume",
+        "tests ordered",
+        "imaging orders"
+      ],
+      "metric": "Imaging and laboratory order and result volume",
+      "definition": "Count of imaging studies and laboratory tests ordered and resulted, by modality or test group.",
+      "references": [
+        {
+          "title": "CPT code set",
+          "body": "American Medical Association"
+        }
+      ],
+      "requiredData": [
+        "order and result records with modality or test code and dates"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-UV-06",
+      "domain": "utilization",
+      "question": "How much of our care is by telehealth?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "telehealth",
+        "telemedicine",
+        "virtual visits",
+        "video visits",
+        "virtual care"
+      ],
+      "metric": "Telehealth share of visits",
+      "definition": "Telehealth encounters divided by all outpatient encounters.",
+      "references": [
+        {
+          "title": "Telehealth place-of-service codes 02 and 10",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "encounters with visit modality or place-of-service code"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": "Claim lines carry place-of-service, so a billing-based approximation is possible (catalogue V6).",
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-UV-07",
+      "domain": "utilization",
+      "question": "How many patients came back to the ED within 72 hours?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "72-hour return",
+        "72 hour return",
+        "return to the ed",
+        "ed returns",
+        "ed revisit",
+        "ed bounce back"
+      ],
+      "metric": "72-hour ED return rate",
+      "definition": "ED patients returning to the ED within 72 hours of a discharge, divided by ED discharges.",
+      "references": [
+        {
+          "title": "ED return visit measures",
+          "body": "ED Benchmarking Alliance"
+        }
+      ],
+      "requiredData": [
+        "ED encounters with patient identifier and times"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CE-01",
+      "domain": "cost",
+      "question": "What does it cost us to treat a patient, by condition?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "cost per case",
+        "cost per discharge",
+        "cost per patient",
+        "cost of care",
+        "cost per stay"
+      ],
+      "metric": "Cost per discharge by MS-DRG",
+      "definition": "Total direct and indirect cost for the stay, from cost accounting, divided by discharges, by MS-DRG.",
+      "references": [
+        {
+          "title": "Medicare Cost Report (Form CMS-2552-10)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "cost accounting by encounter",
+        "MS-DRG per stay"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CE-02",
+      "domain": "cost",
+      "question": "What are our supply and drug costs per case?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "supply cost",
+        "supply costs",
+        "implant cost",
+        "drug cost",
+        "pharmacy spend",
+        "cost per case supplies"
+      ],
+      "metric": "Supply and drug cost per case",
+      "definition": "Supply and pharmaceutical cost allocated to cases, divided by cases, by procedure and surgeon.",
+      "references": [
+        {
+          "title": "Hospital cost accounting definitions",
+          "body": "HFMA"
+        }
+      ],
+      "requiredData": [
+        "supply chain and pharmacy cost by case",
+        "case counts"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CE-03",
+      "domain": "cost",
+      "question": "How much does avoidable readmission or an extended stay cost us?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "avoidable cost",
+        "cost of readmissions",
+        "excess days",
+        "avoidable days",
+        "extended stay cost"
+      ],
+      "metric": "Cost of readmissions and avoidable days",
+      "definition": "Cost of readmissions and of days above the expected length of stay.",
+      "references": [
+        {
+          "title": "Hospital Readmissions Reduction Program (HRRP)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "readmission and length-of-stay data (see C-QL-01, C-AT-06)",
+        "cost accounting by encounter"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CE-04",
+      "domain": "cost",
+      "question": "What is our margin by service line?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "service line margin",
+        "margin by service line",
+        "service line profitability",
+        "contribution margin"
+      ],
+      "metric": "Contribution margin by service line",
+      "definition": "Net revenue minus direct cost, by service line.",
+      "references": [
+        {
+          "title": "Service line reporting",
+          "body": "HFMA"
+        }
+      ],
+      "requiredData": [
+        "net revenue by encounter (billing)",
+        "cost accounting by encounter",
+        "service-line mapping"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": "Net revenue pieces exist in billing (catalogue F-themes) but cost data does not.",
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-01",
+      "domain": "population",
+      "question": "How many of our diabetic patients have poorly controlled blood sugar?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "diabetes control",
+        "diabetic control",
+        "hba1c",
+        "a1c",
+        "poorly controlled diabetes",
+        "glycemic"
+      ],
+      "metric": "Diabetes glycemic status: HbA1c above 9% rate",
+      "definition": "Patients 18-75 with diabetes whose most recent HbA1c in the year is above 9% or missing, divided by patients with diabetes.",
+      "references": [
+        {
+          "title": "Glycemic Status Assessment for Patients With Diabetes (GSD)",
+          "body": "NCQA HEDIS"
+        }
+      ],
+      "requiredData": [
+        "diabetes diagnosis registry",
+        "HbA1c results with dates",
+        "patient age and enrollment"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-02",
+      "domain": "population",
+      "question": "Is our patients' blood pressure under control?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "blood pressure control",
+        "hypertension control",
+        "controlling high blood pressure",
+        "uncontrolled hypertension",
+        "cbp"
+      ],
+      "metric": "Controlling High Blood Pressure rate",
+      "definition": "Patients 18-85 with hypertension whose most recent blood pressure is below 140/90, divided by patients with hypertension.",
+      "references": [
+        {
+          "title": "Controlling High Blood Pressure (CBP)",
+          "body": "NCQA HEDIS"
+        }
+      ],
+      "requiredData": [
+        "hypertension diagnosis registry",
+        "blood pressure readings with dates"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-03",
+      "domain": "population",
+      "question": "What share of eligible patients are up to date on cancer screening?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "cancer screening",
+        "breast cancer screening",
+        "mammogram",
+        "colorectal screening",
+        "colonoscopy",
+        "cervical screening",
+        "pap"
+      ],
+      "metric": "Breast, colorectal and cervical cancer screening rates",
+      "definition": "Eligible patients with a screening in the measure window, divided by eligible patients.",
+      "references": [
+        {
+          "title": "Breast Cancer Screening (BCS-E), Colorectal Cancer Screening (COL-E), Cervical Cancer Screening (CCS)",
+          "body": "NCQA HEDIS"
+        }
+      ],
+      "requiredData": [
+        "eligible-population definition by age and sex",
+        "screening procedures and results with dates"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-04",
+      "domain": "population",
+      "question": "What are our immunization rates?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "immunization",
+        "immunizations",
+        "vaccination rate",
+        "vaccination rates",
+        "vaccines",
+        "flu shot",
+        "flu shots"
+      ],
+      "metric": "Childhood and adult immunization rates",
+      "definition": "Patients up to date on the recommended vaccine series, divided by eligible patients.",
+      "references": [
+        {
+          "title": "Childhood Immunization Status (CIS) and Adult Immunization Status (AIS-E)",
+          "body": "NCQA HEDIS"
+        }
+      ],
+      "requiredData": [
+        "immunization records with vaccine and date",
+        "patient age and enrollment"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-05",
+      "domain": "population",
+      "question": "Do patients get follow-up care after a hospital stay?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "follow-up after hospitalization",
+        "follow up after discharge",
+        "transitions of care",
+        "7-day follow-up",
+        "post-discharge follow-up",
+        "post discharge follow up"
+      ],
+      "metric": "Follow-up within 7 and 30 days after discharge",
+      "definition": "Discharged patients with a follow-up visit within 7 or 30 days, divided by eligible discharges, including follow-up after mental-illness hospitalization.",
+      "references": [
+        {
+          "title": "Follow-Up After Hospitalization for Mental Illness (FUH)",
+          "body": "NCQA HEDIS"
+        },
+        {
+          "title": "Transitions of Care (TRC)",
+          "body": "NCQA HEDIS"
+        }
+      ],
+      "requiredData": [
+        "discharge dates and disposition",
+        "outpatient visit dates",
+        "patient identifier to link"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-06",
+      "domain": "population",
+      "question": "How many hospital admissions could have been prevented with good outpatient care?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "preventable admissions",
+        "avoidable admissions",
+        "ambulatory care sensitive",
+        "prevention quality indicators",
+        "pqi"
+      ],
+      "metric": "Prevention Quality Indicator admission rates",
+      "definition": "Admissions for ambulatory-care-sensitive conditions (for example diabetes complications, asthma, heart failure) per 100,000 population.",
+      "references": [
+        {
+          "title": "Prevention Quality Indicators (PQI)",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "principal diagnoses",
+        "patient residence or attributed population",
+        "population denominator"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-07",
+      "domain": "population",
+      "question": "Which patients are high-risk and need outreach?",
+      "audience": [
+        "CMO",
+        "Care management"
+      ],
+      "keywords": [
+        "high risk patients",
+        "high-risk patients",
+        "rising risk",
+        "risk stratification",
+        "care gaps",
+        "care gap",
+        "high utilizers",
+        "frequent flyers"
+      ],
+      "metric": "Risk-stratified cohorts and open care gaps",
+      "definition": "Patients grouped by risk score, with open care gaps and recent utilisation; high ED users commonly defined as four or more ED visits in a year (local definition).",
+      "references": [
+        {
+          "title": "CMS-HCC risk adjustment model",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "diagnoses over time",
+        "utilisation history",
+        "care-gap rules",
+        "patient identifier"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PH-08",
+      "domain": "population",
+      "question": "How many patients have multiple chronic conditions?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "chronic conditions",
+        "multiple chronic",
+        "chronic disease",
+        "chronic patients",
+        "comorbidities"
+      ],
+      "metric": "Prevalence of chronic conditions and multimorbidity",
+      "definition": "Patients with each chronic condition, and with two or more, divided by active patients.",
+      "references": [
+        {
+          "title": "CMS Chronic Conditions Data Warehouse condition algorithms",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "diagnosis history",
+        "active-patient definition"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PE-01",
+      "domain": "experience",
+      "question": "How do patients rate their hospital stay?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "hcahps",
+        "patient satisfaction",
+        "patient experience",
+        "overall rating",
+        "patient survey",
+        "patient surveys"
+      ],
+      "metric": "HCAHPS overall hospital rating and top-box scores",
+      "definition": "Share of respondents giving the hospital a 9 or 10, and top-box scores for communication, responsiveness and discharge information.",
+      "references": [
+        {
+          "title": "Hospital Consumer Assessment of Healthcare Providers and Systems (HCAHPS)",
+          "body": "CMS / AHRQ"
+        }
+      ],
+      "requiredData": [
+        "survey vendor extract with item responses, discharge date and unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PE-02",
+      "domain": "experience",
+      "question": "Would patients recommend us?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "recommend the hospital",
+        "would recommend",
+        "net promoter",
+        "nps",
+        "likelihood to recommend"
+      ],
+      "metric": "Likelihood to recommend",
+      "definition": "Share of respondents who would definitely recommend the hospital.",
+      "references": [
+        {
+          "title": "HCAHPS 'Recommend the hospital' item",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "survey item responses with date and unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PE-03",
+      "domain": "experience",
+      "question": "What are patients complaining about?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "complaints",
+        "grievances",
+        "patient complaints",
+        "patient grievances",
+        "complaint themes"
+      ],
+      "metric": "Complaints and grievances by theme and resolution time",
+      "definition": "Count of complaints and grievances by theme and days to resolution.",
+      "references": [
+        {
+          "title": "Patient rights: grievance process, 42 CFR 482.13",
+          "body": "CMS Conditions of Participation"
+        }
+      ],
+      "requiredData": [
+        "grievance log with theme, date opened and closed",
+        "unit"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PE-04",
+      "domain": "experience",
+      "question": "How do clinic patients rate their provider?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "clinic patient experience",
+        "provider rating",
+        "cg-cahps",
+        "doctor rating",
+        "provider ratings"
+      ],
+      "metric": "Provider rating (clinician and group survey)",
+      "definition": "Share of respondents giving the provider a 9 or 10, by clinic and provider.",
+      "references": [
+        {
+          "title": "Clinician & Group CAHPS (CG-CAHPS)",
+          "body": "AHRQ"
+        }
+      ],
+      "requiredData": [
+        "survey item responses by provider and clinic"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-WF-01",
+      "domain": "workforce",
+      "question": "Are we safely staffed?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "staffing",
+        "nurse staffing",
+        "nurse to patient ratio",
+        "nurse-to-patient ratio",
+        "hours per patient day",
+        "safe staffing"
+      ],
+      "metric": "Nursing hours per patient day and nurse-to-patient ratio",
+      "definition": "Worked nursing hours divided by patient days, and patients per nurse by shift and unit.",
+      "references": [
+        {
+          "title": "NDNQI nursing hours per patient day",
+          "body": "Press Ganey (NDNQI)"
+        }
+      ],
+      "requiredData": [
+        "timekeeping hours by role, unit and shift",
+        "midnight census or hourly census"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-WF-02",
+      "domain": "workforce",
+      "question": "What is our staff turnover and how many positions are vacant?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "turnover",
+        "staff turnover",
+        "vacancy",
+        "vacancies",
+        "vacancy rate",
+        "attrition"
+      ],
+      "metric": "Turnover and vacancy rates by role",
+      "definition": "Separations divided by average headcount, and open budgeted positions divided by budgeted positions.",
+      "references": [
+        {
+          "title": "National Health Care Retention & RN Staffing Report",
+          "body": "NSI Nursing Solutions"
+        }
+      ],
+      "requiredData": [
+        "HR roster with hire and termination dates",
+        "budgeted positions"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-WF-03",
+      "domain": "workforce",
+      "question": "How much overtime and agency labor are we using?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "overtime",
+        "agency staff",
+        "agency nurses",
+        "contract labor",
+        "travel nurses"
+      ],
+      "metric": "Overtime and contract labor share of hours and cost",
+      "definition": "Overtime and agency hours and cost divided by total worked hours and labor cost.",
+      "references": [
+        {
+          "title": "Labor cost reporting",
+          "body": "HFMA"
+        }
+      ],
+      "requiredData": [
+        "payroll hours and cost by pay type",
+        "agency invoices"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-WF-04",
+      "domain": "workforce",
+      "question": "How productive are our physicians?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "physician productivity",
+        "wrvu",
+        "work rvu",
+        "work rvus",
+        "provider productivity",
+        "rvus"
+      ],
+      "metric": "Work RVUs per provider",
+      "definition": "Work relative value units from billed procedures, per provider per FTE.",
+      "references": [
+        {
+          "title": "Medicare Physician Fee Schedule relative value units",
+          "body": "CMS"
+        },
+        {
+          "title": "Provider compensation and productivity survey",
+          "body": "MGMA"
+        }
+      ],
+      "requiredData": [
+        "billed CPT per provider",
+        "RVU table by year",
+        "provider FTE"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": "Billed CPT per provider exists in billing; the RVU table and FTE are missing.",
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-WF-05",
+      "domain": "workforce",
+      "question": "Are staff credentials and competencies current?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "credentialing",
+        "credentials expiring",
+        "license expiry",
+        "licenses expiring",
+        "competency",
+        "competencies"
+      ],
+      "metric": "Credential and competency currency",
+      "definition": "Staff with expired or soon-to-expire licenses, certifications and competencies.",
+      "references": [
+        {
+          "title": "Credentialing and privileging standards",
+          "body": "The Joint Commission"
+        },
+        {
+          "title": "Credentialing standards",
+          "body": "NCQA"
+        }
+      ],
+      "requiredData": [
+        "credentialing records with expiry dates"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CR-01",
+      "domain": "compliance",
+      "question": "Have we had any privacy breaches?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "hipaa",
+        "privacy breach",
+        "privacy breaches",
+        "data breach",
+        "breach"
+      ],
+      "metric": "Privacy incidents and breaches reportable under HIPAA",
+      "definition": "Count of privacy incidents, breaches affecting 500 or more individuals, and notification timeliness.",
+      "references": [
+        {
+          "title": "HIPAA Breach Notification Rule, 45 CFR 164.400-414",
+          "body": "HHS Office for Civil Rights"
+        }
+      ],
+      "requiredData": [
+        "privacy incident log with date, size, type and notification dates"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CR-02",
+      "domain": "compliance",
+      "question": "Are our physicians being peer reviewed?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "peer review",
+        "oppe",
+        "fppe",
+        "professional practice evaluation"
+      ],
+      "metric": "Peer review and professional practice evaluation completion",
+      "definition": "Completed ongoing and focused professional practice evaluations divided by those due.",
+      "references": [
+        {
+          "title": "Ongoing and Focused Professional Practice Evaluation (OPPE/FPPE)",
+          "body": "The Joint Commission"
+        }
+      ],
+      "requiredData": [
+        "peer review records by provider with due and completion dates"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CR-03",
+      "domain": "compliance",
+      "question": "Are we ready for an accreditation survey?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "accreditation",
+        "survey readiness",
+        "joint commission survey",
+        "audit findings",
+        "regulatory findings"
+      ],
+      "metric": "Open audit and survey findings by standard",
+      "definition": "Open findings from internal audits and external surveys, by standard and due date.",
+      "references": [
+        {
+          "title": "Hospital Accreditation Standards",
+          "body": "The Joint Commission"
+        }
+      ],
+      "requiredData": [
+        "audit and survey finding register with standard, severity, owner and due date"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CR-04",
+      "domain": "compliance",
+      "question": "How many malpractice claims and lawsuits do we have?",
+      "audience": [
+        "CEO",
+        "General counsel"
+      ],
+      "keywords": [
+        "malpractice",
+        "malpractice claims",
+        "lawsuits",
+        "litigation",
+        "liability claims"
+      ],
+      "metric": "Professional liability claims and reserves",
+      "definition": "Open and closed professional liability claims by service and provider, with reserves.",
+      "references": [
+        {
+          "title": "Risk management claims reporting",
+          "body": "Internal; carrier loss runs"
+        }
+      ],
+      "requiredData": [
+        "risk management claims register",
+        "carrier loss runs"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-CR-05",
+      "domain": "compliance",
+      "question": "Is informed consent being documented?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "informed consent",
+        "consent documentation",
+        "consent forms",
+        "consent audit"
+      ],
+      "metric": "Informed consent documentation compliance",
+      "definition": "Procedures with documented informed consent before the procedure divided by procedures audited.",
+      "references": [
+        {
+          "title": "Medical record services, 42 CFR 482.24",
+          "body": "CMS Conditions of Participation"
+        }
+      ],
+      "requiredData": [
+        "procedure records",
+        "consent form timestamps",
+        "audit sample"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-DC-01",
+      "domain": "documentation",
+      "question": "How complete is our clinical documentation?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "documentation completeness",
+        "incomplete charts",
+        "delinquent records",
+        "chart completion",
+        "open charts"
+      ],
+      "metric": "Chart completion and delinquent record rate",
+      "definition": "Charts completed within the policy window divided by discharges; count of delinquent records by provider.",
+      "references": [
+        {
+          "title": "Medical record services, 42 CFR 482.24",
+          "body": "CMS Conditions of Participation"
+        }
+      ],
+      "requiredData": [
+        "chart status with discharge date, completion date and responsible provider"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-DC-02",
+      "domain": "documentation",
+      "question": "How often do we query physicians for clarification?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "cdi",
+        "clinical documentation improvement",
+        "documentation query",
+        "documentation queries",
+        "physician queries"
+      ],
+      "metric": "Documentation query rate and response rate",
+      "definition": "Queries issued per 100 discharges, and share answered and agreed.",
+      "references": [
+        {
+          "title": "Guidelines for Achieving a Compliant Query Practice",
+          "body": "ACDIS / AHIMA"
+        }
+      ],
+      "requiredData": [
+        "query log with date, type, response and outcome"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-DC-03",
+      "domain": "documentation",
+      "question": "Are we capturing the severity of our patients?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "severity capture",
+        "mcc capture",
+        "cc capture",
+        "complication and comorbidity",
+        "documentation severity"
+      ],
+      "metric": "CC and MCC capture rate",
+      "definition": "Discharges with a major or other complication/comorbidity code divided by eligible discharges.",
+      "references": [
+        {
+          "title": "MS-DRG severity levels (CC, MCC)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "secondary diagnoses per discharge",
+        "MS-DRG assignment"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-DC-04",
+      "domain": "documentation",
+      "question": "How accurate is our coding?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "coding accuracy",
+        "coding audit",
+        "coding errors",
+        "coding quality",
+        "drg validation"
+      ],
+      "metric": "Coding accuracy rate from audit",
+      "definition": "Audited records with all codes confirmed divided by records audited.",
+      "references": [
+        {
+          "title": "ICD-10-CM/PCS Official Guidelines for Coding and Reporting",
+          "body": "CMS / NCHS"
+        }
+      ],
+      "requiredData": [
+        "coding audit results with record, code and finding"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-DC-05",
+      "domain": "documentation",
+      "question": "How many claims are denied for medical necessity?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "medical necessity",
+        "medical necessity denials",
+        "lack of necessity",
+        "not medically necessary"
+      ],
+      "metric": "Medical necessity denial rate",
+      "definition": "Claims denied for medical necessity divided by claims submitted; links clinical documentation to billing denials.",
+      "references": [
+        {
+          "title": "Local and national coverage determinations (LCD/NCD)",
+          "body": "CMS"
+        }
+      ],
+      "requiredData": [
+        "denial reason codes mapped to a medical-necessity group",
+        "clinical documentation links"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": "Denial counts by status and reason are available now (denial analysis); reasons are not yet grouped into medical necessity.",
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PL-01",
+      "domain": "ancillary",
+      "question": "How much antibiotic are we using?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "antibiotic use",
+        "antibiotic stewardship",
+        "antimicrobial use",
+        "antibiotics",
+        "days of therapy"
+      ],
+      "metric": "Antibiotic days of therapy per 1,000 days present",
+      "definition": "Antibiotic days of therapy divided by patient days present, by unit and drug class.",
+      "references": [
+        {
+          "title": "NHSN Antimicrobial Use (AU) Option",
+          "body": "CDC"
+        },
+        {
+          "title": "Core Elements of Hospital Antibiotic Stewardship Programs",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "medication administration records with drug, date and unit",
+        "patient days present"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PL-02",
+      "domain": "ancillary",
+      "question": "What is our opioid prescribing like?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "opioid",
+        "opioids",
+        "opioid prescribing",
+        "morphine milligram equivalents",
+        "mme"
+      ],
+      "metric": "Opioid prescribing volume and morphine milligram equivalents",
+      "definition": "Opioid prescriptions and average daily morphine milligram equivalents, by prescriber and diagnosis.",
+      "references": [
+        {
+          "title": "Clinical Practice Guideline for Prescribing Opioids for Pain (2022)",
+          "body": "CDC"
+        }
+      ],
+      "requiredData": [
+        "prescriptions with drug, strength, quantity and days supply",
+        "prescriber"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PL-03",
+      "domain": "ancillary",
+      "question": "How fast do we turn around lab results?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "lab turnaround",
+        "laboratory turnaround",
+        "turnaround time",
+        "stat lab",
+        "lab results time"
+      ],
+      "metric": "Laboratory turnaround time",
+      "definition": "Median and 90th-percentile minutes from order or collection to result, by test and priority.",
+      "references": [
+        {
+          "title": "Q-Probes turnaround time studies",
+          "body": "College of American Pathologists"
+        }
+      ],
+      "requiredData": [
+        "lab order, collection and result timestamps",
+        "priority"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PL-04",
+      "domain": "ancillary",
+      "question": "Are critical lab results reported on time?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "critical results",
+        "critical values",
+        "critical lab",
+        "critical result"
+      ],
+      "metric": "Critical result notification timeliness",
+      "definition": "Critical results communicated to a responsible clinician within the policy window divided by critical results.",
+      "references": [
+        {
+          "title": "National Patient Safety Goal NPSG.02.03.01 (report critical results)",
+          "body": "The Joint Commission"
+        }
+      ],
+      "requiredData": [
+        "critical result log with result and notification timestamps"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PL-05",
+      "domain": "ancillary",
+      "question": "How fast are imaging reports finished, and how often do we repeat studies?",
+      "audience": [
+        "CEO",
+        "CMO"
+      ],
+      "keywords": [
+        "imaging turnaround",
+        "radiology turnaround",
+        "report turnaround",
+        "repeat imaging",
+        "repeat scans",
+        "repeat studies"
+      ],
+      "metric": "Imaging report turnaround and repeat rate",
+      "definition": "Median hours from exam completion to final report; repeated studies divided by studies.",
+      "references": [
+        {
+          "title": "Practice parameters and quality metrics",
+          "body": "American College of Radiology"
+        }
+      ],
+      "requiredData": [
+        "exam and report timestamps",
+        "study counts with repeat flag"
+      ],
+      "dataClass": "Aggregate",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-01",
+      "domain": "patient-level",
+      "question": "Show this patient's recent admissions.",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "recent admissions",
+        "admission history",
+        "previous admissions",
+        "past admissions"
+      ],
+      "metric": "Patient admission history",
+      "definition": "The patient's inpatient stays with dates, unit and discharge disposition.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "inpatient encounters for one patient"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-02",
+      "domain": "patient-level",
+      "question": "When was this patient last seen?",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "last visit",
+        "last seen",
+        "most recent visit",
+        "last appointment"
+      ],
+      "metric": "Last visit",
+      "definition": "Date, clinic and provider of the most recent completed encounter.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "encounters for one patient"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-03",
+      "domain": "patient-level",
+      "question": "What are this patient's active diagnoses?",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "active diagnoses",
+        "problem list",
+        "active problems",
+        "diagnoses list"
+      ],
+      "metric": "Active problem list",
+      "definition": "Active conditions on the patient's problem list.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "conditions for one patient (FHIR Condition)"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-04",
+      "domain": "patient-level",
+      "question": "What medications is this patient on?",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "current medications",
+        "medication list",
+        "active medications",
+        "what medications"
+      ],
+      "metric": "Active medication list",
+      "definition": "Active medication orders and administrations.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "medication requests for one patient (FHIR MedicationRequest)"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-05",
+      "domain": "patient-level",
+      "question": "Does this patient have any allergies?",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "allergies",
+        "allergy list",
+        "drug allergies",
+        "allergic"
+      ],
+      "metric": "Allergy and intolerance list",
+      "definition": "Recorded allergies and intolerances with reaction and severity.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "allergy records for one patient (FHIR AllergyIntolerance)"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-06",
+      "domain": "patient-level",
+      "question": "What were this patient's recent lab results?",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "recent labs",
+        "lab results",
+        "recent lab results",
+        "latest labs"
+      ],
+      "metric": "Recent laboratory results",
+      "definition": "Latest results by test with reference range and flags.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "observations for one patient (FHIR Observation)"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-07",
+      "domain": "patient-level",
+      "question": "What appointments does this patient have coming up?",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "upcoming appointments",
+        "next appointment",
+        "future appointments",
+        "scheduled appointments"
+      ],
+      "metric": "Upcoming appointments",
+      "definition": "Booked future appointments with clinic, provider and time.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "appointments for one patient (FHIR Appointment)"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    },
+    {
+      "id": "C-PT-08",
+      "domain": "patient-level",
+      "question": "Does this patient have open incidents or care gaps?",
+      "audience": [
+        "Clinician",
+        "Care management"
+      ],
+      "keywords": [
+        "open incidents",
+        "patient care gaps",
+        "open care gaps",
+        "outstanding care"
+      ],
+      "metric": "Open incidents and care gaps",
+      "definition": "Open safety incidents involving the patient and open care-gap measures.",
+      "references": [
+        {
+          "title": "HL7 FHIR R4 resources",
+          "body": "HL7 International"
+        }
+      ],
+      "requiredData": [
+        "incident register by patient",
+        "care-gap rules and status"
+      ],
+      "dataClass": "PatientLevel",
+      "status": "NoSource",
+      "closest": null,
+      "followUps": [],
+      "reportIds": [],
+      "via": null,
+      "note": null,
+      "source": null
+    }
+  ]
+}

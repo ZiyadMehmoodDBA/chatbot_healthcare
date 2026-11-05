@@ -16,11 +16,19 @@ public sealed partial class ReportQueries
 
     private readonly string _payments;
     private readonly string _insuranceAr;
+    private readonly string _claimVolume;
+    private readonly string _daysToBill;
+    private readonly string _denials;
+    private readonly string _patientBilling;
 
     public ReportQueries(ReportServiceOptions options)
     {
         _payments = ValidateViewName(options.PaymentsView, nameof(options.PaymentsView));
         _insuranceAr = ValidateViewName(options.InsuranceArView, nameof(options.InsuranceArView));
+        _claimVolume = ValidateViewName(options.ClaimVolumeView, nameof(options.ClaimVolumeView));
+        _daysToBill = ValidateViewName(options.DaysToBillView, nameof(options.DaysToBillView));
+        _denials = ValidateViewName(options.DenialsView, nameof(options.DenialsView));
+        _patientBilling = ValidateViewName(options.PatientBillingView, nameof(options.PatientBillingView));
     }
 
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]{0,63}(\.[A-Za-z_][A-Za-z0-9_]{0,63}){0,2}$")]
@@ -100,14 +108,156 @@ public sealed partial class ReportQueries
         return new(sql, p, topN, o.CommandTimeoutSeconds);
     }
 
+    // Claims by practice and rendering provider for a date-of-service period.
+    public ReportQuery ClaimVolume(
+        DateOnly start, DateOnly end, IReadOnlyList<long> practices, long? providerId, int topN, ReportServiceOptions o)
+    {
+        var (p, scope) = Scope(practices);
+        p.AddRange(DateRange(start, end));
+        p.Add(new("@topN", DbType.Int32, topN));
+        var where = new StringBuilder($"DOS >= @start AND DOS < DATEADD(DAY, 1, @end) AND Practice_Code IN ({scope})");
+        Optional(where, p, "Rendering_Provider_ID", "@providerId", providerId);
+        var sql = $"""
+            SELECT TOP (@topN) Practice_Code, Rendering_Provider_ID, Rendering_Provider, COUNT(DISTINCT Claim_No), COUNT_BIG(*),
+                   COALESCE(SUM(CAST(Charge_Amount AS decimal(19,4))), 0)
+            FROM {_claimVolume}
+            WHERE {where}
+            GROUP BY Practice_Code, Rendering_Provider_ID, Rendering_Provider
+            ORDER BY COUNT(DISTINCT Claim_No) DESC, Practice_Code, Rendering_Provider_ID
+            """;
+        return new(sql, p, topN, o.CommandTimeoutSeconds);
+    }
+
+    // Days to bill by payer. A claim counts only with both dates and a non-negative gap.
+    public ReportQuery DaysToBill(
+        DateOnly start, DateOnly end, IReadOnlyList<long> practices, long? payerId, int topN, ReportServiceOptions o)
+    {
+        var (p, scope) = Scope(practices);
+        p.AddRange(DateRange(start, end));
+        p.Add(new("@topN", DbType.Int32, topN));
+        var where = new StringBuilder(DaysToBillWhere(scope));
+        Optional(where, p, "v.Ins_Payer_Id", "@payerId", payerId);
+        var sql = $"""
+            SELECT TOP (@topN) v.Ins_Payer_Id, v.Ins_Payer_Name, COUNT(DISTINCT v.Claim_No),
+                   COALESCE(AVG(CAST(d.Days AS decimal(19,4))), 0), COALESCE(MAX(d.Days), 0)
+            FROM {_daysToBill} v
+            CROSS APPLY (SELECT DATEDIFF(DAY, v.DOS, v.First_Submission_Date) AS Days) d
+            WHERE {where}
+            GROUP BY v.Ins_Payer_Id, v.Ins_Payer_Name
+            ORDER BY COUNT(DISTINCT v.Claim_No) DESC, v.Ins_Payer_Id
+            """;
+        return new(sql, p, topN, o.CommandTimeoutSeconds);
+    }
+
+    // The overall figure across payers, shown as the first row of the report
+    public ReportQuery DaysToBillOverall(
+        DateOnly start, DateOnly end, IReadOnlyList<long> practices, long? payerId, ReportServiceOptions o)
+    {
+        var (p, scope) = Scope(practices);
+        p.AddRange(DateRange(start, end));
+        var where = new StringBuilder(DaysToBillWhere(scope));
+        Optional(where, p, "v.Ins_Payer_Id", "@payerId", payerId);
+        var sql = $"""
+            SELECT COUNT(DISTINCT v.Claim_No), COALESCE(AVG(CAST(d.Days AS decimal(19,4))), 0), COALESCE(MAX(d.Days), 0)
+            FROM {_daysToBill} v
+            CROSS APPLY (SELECT DATEDIFF(DAY, v.DOS, v.First_Submission_Date) AS Days) d
+            WHERE {where}
+            """;
+        return new(sql, p, 1, o.CommandTimeoutSeconds);
+    }
+
+    private static string DaysToBillWhere(string scope)
+        => "v.First_Submission_Date >= @start AND v.First_Submission_Date < DATEADD(DAY, 1, @end) " +
+           $"AND v.DOS IS NOT NULL AND DATEDIFF(DAY, v.DOS, v.First_Submission_Date) >= 0 AND v.Practice_Code IN ({scope})";
+
+    // Denial and rejection status records by status and reason. Counts claims, never dollars.
+    public ReportQuery Denials(
+        DateOnly start, DateOnly end, IReadOnlyList<long> practices, long? payerId, int topN, ReportServiceOptions o)
+    {
+        var (p, scope) = Scope(practices);
+        p.AddRange(DateRange(start, end));
+        p.Add(new("@topN", DbType.Int32, topN));
+        var where = new StringBuilder(DenialsWhere(scope));
+        Optional(where, p, "Ins_Payer_Id", "@payerId", payerId);
+        var sql = $"""
+            SELECT TOP (@topN) Claim_Status, Status_Reason, COUNT(DISTINCT Claim_No), COUNT_BIG(*), COUNT(DISTINCT Ins_Payer_Id)
+            FROM {_denials}
+            WHERE {where}
+            GROUP BY Claim_Status, Status_Reason
+            ORDER BY COUNT(DISTINCT Claim_No) DESC, Claim_Status, Status_Reason
+            """;
+        return new(sql, p, topN, o.CommandTimeoutSeconds);
+    }
+
+    public ReportQuery DenialsOverall(
+        DateOnly start, DateOnly end, IReadOnlyList<long> practices, long? payerId, ReportServiceOptions o)
+    {
+        var (p, scope) = Scope(practices);
+        p.AddRange(DateRange(start, end));
+        var where = new StringBuilder(DenialsWhere(scope));
+        Optional(where, p, "Ins_Payer_Id", "@payerId", payerId);
+        var sql = $"""
+            SELECT COUNT(DISTINCT Claim_No), COUNT_BIG(*), COUNT(DISTINCT Ins_Payer_Id)
+            FROM {_denials}
+            WHERE {where}
+            """;
+        return new(sql, p, 1, o.CommandTimeoutSeconds);
+    }
+
+    private static string DenialsWhere(string scope)
+        => $"Claim_Status_Date >= @start AND Claim_Status_Date < DATEADD(DAY, 1, @end) AND Practice_Code IN ({scope})";
+
+    // One patient account. The account number is a bound parameter; the practice list is always the actor's scope.
+    public ReportQuery PatientLines(long account, IReadOnlyList<long> practices, ReportServiceOptions o)
+    {
+        var (p, scope) = Scope(practices);
+        p.Add(new("@account", DbType.Int64, account));
+        p.Add(new("@max", DbType.Int32, o.MaxPatientRows + 1));
+        var sql = $"""
+            SELECT TOP (@max) Practice_Code, Claim_No, Sequence_Number, DOS, CPT, Billed_Date, Billing_Status,
+                   Charge_Amount, Insurance_Payments, Patient_Payments,
+                   COALESCE(Contractual_Adjustments, 0) + COALESCE(Manual_Adjustments, 0),
+                   Patient_Responsibility, Patient_Balance
+            FROM {_patientBilling}
+            WHERE Patient_Account = @account AND Practice_Code IN ({scope})
+            ORDER BY DOS DESC, Claim_No, Sequence_Number
+            """;
+        return new(sql, p, o.MaxPatientRows, o.CommandTimeoutSeconds);
+    }
+
+    // Totals cover every line of the account, not only the lines shown
+    public ReportQuery PatientTotals(long account, IReadOnlyList<long> practices, ReportServiceOptions o)
+    {
+        var (p, scope) = Scope(practices);
+        p.Add(new("@account", DbType.Int64, account));
+        var sql = $"""
+            SELECT COUNT_BIG(*), COUNT(DISTINCT Claim_No),
+                   COALESCE(SUM(CAST(Charge_Amount AS decimal(19,4))), 0),
+                   COALESCE(SUM(CAST(Insurance_Payments AS decimal(19,4))), 0),
+                   COALESCE(SUM(CAST(Patient_Payments AS decimal(19,4))), 0),
+                   COALESCE(SUM(CAST(COALESCE(Contractual_Adjustments, 0) + COALESCE(Manual_Adjustments, 0) AS decimal(19,4))), 0),
+                   COALESCE(SUM(CAST(Patient_Responsibility AS decimal(19,4))), 0),
+                   COALESCE(SUM(CAST(Patient_Balance AS decimal(19,4))), 0)
+            FROM {_patientBilling}
+            WHERE Patient_Account = @account AND Practice_Code IN ({scope})
+            """;
+        return new(sql, p, 1, o.CommandTimeoutSeconds);
+    }
+
     // Latest date in the source, so a reader can see how fresh the data is. Scoped like the report itself.
     public ReportQuery Freshness(string reportId, IReadOnlyList<long> practices, ReportServiceOptions o)
     {
         var (p, scope) = Scope(practices);
-        var sql = reportId == ReportCatalog.InsuranceAging
-            ? $"SELECT MAX(Billed_Date) FROM {_insuranceAr} WHERE Practice_Code IN ({scope})"
-            : $"SELECT MAX(Posting_Date) FROM {_payments} WHERE Practice_Code IN ({scope})";
-        return new(sql, p, 1, o.CommandTimeoutSeconds);
+        var (column, view) = reportId switch
+        {
+            ReportCatalog.InsuranceAging => ("Billed_Date", _insuranceAr),
+            ReportCatalog.ClaimVolume => ("DOS", _claimVolume),
+            ReportCatalog.DaysToBill => ("First_Submission_Date", _daysToBill),
+            ReportCatalog.Denials => ("Claim_Status_Date", _denials),
+            ReportCatalog.PatientBilling => ("Billed_Date", _patientBilling),
+            _ => ("Posting_Date", _payments),
+        };
+        return new($"SELECT MAX({column}) FROM {view} WHERE Practice_Code IN ({scope})", p, 1, o.CommandTimeoutSeconds);
     }
 
     // Allowlist, not interpolation of the request value

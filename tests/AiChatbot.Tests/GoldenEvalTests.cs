@@ -65,7 +65,7 @@ public class GoldenEvalTests
     public void The_golden_set_covers_every_plan_kind()
     {
         var kinds = RoutingCases().Select(c => (string)c[2]).Distinct().Order().ToArray();
-        Assert.Equal(["Multi", "Open", "Single", "Unsupported"], kinds);
+        Assert.Equal(["Multi", "Open", "Patient", "Single", "Unsupported"], kinds);
     }
 
     // The model must not be able to choose a practice, however it words the arguments

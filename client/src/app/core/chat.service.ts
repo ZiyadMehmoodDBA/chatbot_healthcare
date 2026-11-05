@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 export interface ReportColumn {
   name: string;
   label: string;
-  type: 'Text' | 'Integer' | 'Money' | 'Percent' | number;
+  type: 'Text' | 'Integer' | 'Money' | 'Percent' | 'Decimal' | number;
 }
 
 export interface ReportEvidence {

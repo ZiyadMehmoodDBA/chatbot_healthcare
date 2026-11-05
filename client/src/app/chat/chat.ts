@@ -49,9 +49,10 @@ export class Chat {
   // Cells are formatted from the column type; values arrive as exact numbers or strings from the server
   protected cell(col: ReportColumn, v: string | number | null): string {
     if (v === null || v === undefined) return '—';
-    const type = typeof col.type === 'number' ? ['Text', 'Integer', 'Money', 'Percent'][col.type] : col.type;
+    const type = typeof col.type === 'number' ? ['Text', 'Integer', 'Money', 'Percent', 'Decimal'][col.type] : col.type;
     if (typeof v !== 'number') return String(v);
     if (type === 'Money') return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (type === 'Decimal') return v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     if (type === 'Integer') return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
     if (type === 'Percent') return `${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
     return String(v);

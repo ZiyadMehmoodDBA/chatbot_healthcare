@@ -109,7 +109,7 @@ public class DomainTests
     public void Every_tool_declares_a_complete_contract()
     {
         var all = Registry(new FakeExecutor()).Modules.SelectMany(m => m.Tools).ToList();
-        Assert.Equal(3, all.Count);
+        Assert.Equal(6, all.Count);
         Assert.Equal(all.Count, all.Select(t => t.Name).Distinct().Count());
         foreach (var t in all)
         {
@@ -145,6 +145,19 @@ public class DomainTests
     private static CoordinatorPlan Plan(string q, Actor? actor = null)
         => Coordinator.Plan(q, actor ?? Manager, Registry(new FakeExecutor()).Modules);
 
+    [Fact]
+    public void Clinical_question_gets_an_honest_cited_reply_without_a_model()
+    {
+        var plan = Plan("What is our readmission rate?");
+        Assert.Equal(PlanKind.Unsupported, plan.Kind);
+        Assert.Contains("READM-30-HWR", plan.Reply);
+        Assert.Contains("billing data only", plan.Reply);
+    }
+
+    [Fact]
+    public void Billing_question_is_not_hijacked_by_the_clinical_catalogue()
+        => Assert.NotEqual(PlanKind.Unsupported, Plan("show payments by payer for last month").Kind);
+
     [Theory]
     [InlineData("show payments by payer for last month", "payments")]
     [InlineData("how much did we collect last quarter", "payments")]
@@ -175,15 +188,13 @@ public class DomainTests
     {
         var plan = Plan(question);
         Assert.Equal(PlanKind.Open, plan.Kind);
-        Assert.Equal(3, plan.ToolNames.Count);
+        Assert.Equal(6, plan.ToolNames.Count);
     }
 
     [Theory]
-    [InlineData("which claims were denied last month", "denial and rejection analysis")]
     [InlineData("show CPT performance", "CPT procedure performance")]
     [InlineData("claim submission performance", "claim status and submission reports")]
-    [InlineData("what is the account statement for this patient", "patient account statements")]
-    [InlineData("what is the account balance for this patient", "patient account statements")]
+    [InlineData("how do we handle appeals", "appeals and denial follow-up work")]
     public void Areas_that_are_not_built_get_an_honest_reply_not_a_guess(string question, string area)
     {
         var plan = Plan(question);
@@ -196,8 +207,37 @@ public class DomainTests
     [Fact]
     public void A_supported_keyword_wins_over_an_unbuilt_one()
     {
-        // "denied" alone is unbuilt, but this is a payments question
-        Assert.Equal(PlanKind.Single, Plan("payments on denied claims last month").Kind);
+        // "appeals" alone is unbuilt, but this is a payments question
+        Assert.Equal(PlanKind.Single, Plan("payments received after appeals last month").Kind);
+    }
+
+    [Fact]
+    public void Denials_claim_volume_and_days_to_bill_are_built_domains()
+    {
+        Assert.Equal(["denials"], Plan("which claims were denied last month").Domains);
+        Assert.Equal(["claims"], Plan("how many claims did we submit by provider").Domains);
+        Assert.Equal(["claims"], Plan("what is our days to bill").Domains);
+        Assert.Equal(["payments", "denials"], Plan("payments on denied claims last month").Domains);
+    }
+
+    [Theory]
+    [InlineData("what is the account statement for this patient")]
+    [InlineData("what is the account balance for this patient")]
+    [InlineData("show the statement for account {ACCT_1}")]
+    [InlineData("how much does the patient owe")]
+    public void Patient_requests_get_a_patient_plan_with_no_model_tools(string question)
+    {
+        var plan = Plan(question);
+        Assert.Equal(PlanKind.Patient, plan.Kind);
+        Assert.Empty(plan.ToolNames);
+    }
+
+    [Fact]
+    public void A_role_without_patient_access_is_refused_for_patient_requests()
+    {
+        var plan = Plan("what is the account statement for this patient", new Actor("a", Roles.Analyst, [10]));
+        Assert.Equal(PlanKind.Unsupported, plan.Kind);
+        Assert.Contains("can't look up individual patient accounts", plan.Reply);
     }
 
     [Fact]
@@ -242,9 +282,9 @@ public class DomainTests
         var agent = Agent(client, ProviderKind.Local, Registry(new FakeExecutor()), out _);
         var turn = new ChatTurn(Manager, "c");
 
-        var reply = await Ask(agent, "which claims were denied last month", turn);
+        var reply = await Ask(agent, "show CPT performance", turn);
 
-        Assert.Contains("denial and rejection analysis", reply);
+        Assert.Contains("CPT procedure performance", reply);
         Assert.Empty(client.Rounds);
         Assert.Equal("Unsupported", turn.Trace.Single(s => s.Kind == "plan").Name);
     }

@@ -24,7 +24,7 @@ public sealed class ReportException(ReportErrorKind kind, string message) : Exce
     public ReportErrorKind Kind { get; } = kind;
 }
 
-public enum ColumnType { Text, Integer, Money, Percent }
+public enum ColumnType { Text, Integer, Money, Percent, Decimal }
 
 public sealed record ReportColumn(string Name, string Label, ColumnType Type);
 
@@ -41,7 +41,9 @@ public sealed record ReportDefinition(
     IReadOnlyList<string> Filters,
     IReadOnlyList<ReportColumn> Columns,
     IReadOnlyList<string> Caveats,
-    IReadOnlyList<string> AllowedRoles);
+    IReadOnlyList<string> AllowedRoles,
+    // Patient-level reports are reachable only through the chat flow (never the generic report API or CSV export)
+    bool PatientLevel = false);
 
 // Everything the caller may choose. Practice scope is intersected with the actor's scope; it is never widened.
 public sealed record ReportRequest(
@@ -52,7 +54,9 @@ public sealed record ReportRequest(
     IReadOnlyList<long>? PracticeCodes = null,
     long? PayerId = null,
     long? ProviderId = null,
-    int? TopN = null);
+    int? TopN = null,
+    // Patient-level lookups only. Never echoed into evidence or audit; they carry a short hash instead.
+    long? AccountNumber = null);
 
 public sealed record ReportEvidence(
     string ReportId,
