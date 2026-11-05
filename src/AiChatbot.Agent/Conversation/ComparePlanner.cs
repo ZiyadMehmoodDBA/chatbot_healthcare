@@ -60,13 +60,19 @@ public static partial class ComparePlanner
             return new ReplyDecision(AskPeriod, TurnKind.Clarification, "compare: period missing");
 
         var lower = text.ToLowerInvariant();
+        var byMonth = Coordinator.HasWord(lower, "by month") || Coordinator.HasWord(lower, "monthly") || Coordinator.HasWord(lower, "each month");
+        var byPractice = Coordinator.HasWord(lower, "by practice") || Coordinator.HasWord(lower, "practice") || Coordinator.HasWord(lower, "practices");
+        var byPayer = Coordinator.HasWord(lower, "by payer") || Coordinator.HasWord(lower, "payer") || Coordinator.HasWord(lower, "payers");
         var reportId = plan.Modules[0].Domain switch
         {
-            "payments" => Coordinator.HasWord(lower, "payer") || Coordinator.HasWord(lower, "payers")
-                ? ReportCatalog.PaymentsByPayer : ReportCatalog.InsuranceVsPatient,
+            "payments" => byMonth ? GroupedReports.PaymentsByMonth
+                : byPractice ? GroupedReports.PaymentsByPractice
+                : byPayer ? ReportCatalog.PaymentsByPayer : ReportCatalog.InsuranceVsPatient,
             "accounts receivable" => ReportCatalog.InsuranceAging,
-            "claims" => DaysToBillWords().IsMatch(lower) ? ReportCatalog.DaysToBill : ReportCatalog.ClaimVolume,
-            "denials" => ReportCatalog.Denials,
+            "claims" => DaysToBillWords().IsMatch(lower) ? ReportCatalog.DaysToBill
+                : byMonth ? GroupedReports.ClaimVolumeByMonth
+                : byPractice ? GroupedReports.ClaimVolumeByPractice : ReportCatalog.ClaimVolume,
+            "denials" => byMonth ? GroupedReports.DenialsByMonth : byPayer ? GroupedReports.DenialsByPayer : ReportCatalog.Denials,
             _ => null,
         };
         if (reportId is null || !ComparisonBuilder.CanCompare(reportId))

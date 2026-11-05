@@ -224,10 +224,33 @@ internal static class Headline
                     v[$"{p}_REASON_ROWS"] = (rows.Count - 1).ToString(CultureInfo.InvariantCulture);
                 }
                 break;
+            default:
+                if (GroupedReports.Find(reportId) is { } grouped && rows.Count > 0)
+                {
+                    // Generic figures for a grouped report: the group the first row names, its main measure, and the listed total
+                    var (mi, money) = MainMeasure(grouped);
+                    var at = grouped.Groups.Count + mi;
+                    v[$"{p}_ROWS"] = rows.Count.ToString(CultureInfo.InvariantCulture);
+                    v[$"{p}_FIRST_GROUP"] = string.Join(" / ", Enumerable.Range(0, grouped.Groups.Count)
+                        .Select(i => Convert.ToString(rows[0][i], CultureInfo.InvariantCulture) ?? ""));
+                    v[$"{p}_FIRST_VALUE"] = money ? Money(rows[0][at]) : Num(rows[0][at]);
+                    var total = rows.Sum(row => Convert.ToDecimal(row[at], CultureInfo.InvariantCulture));
+                    v[$"{p}_LISTED_TOTAL"] = money ? Money(total) : Num(total);
+                }
+                break;
         }
         if (rows.Count == 0 || (reportId == ReportCatalog.InsuranceVsPatient && Convert.ToInt64(rows[0][1], CultureInfo.InvariantCulture) == 0))
             v[$"{p}_EMPTY"] = "No matching records in this period";
         return v;
+    }
+
+    // The measure a grouped report is read by: its combined/total money measure, else charges, else the first count
+    internal static (int Index, bool Money) MainMeasure(GroupedSpec s)
+    {
+        var i = s.Measures.ToList().FindIndex(m => m.Name is "combinedPayments");
+        if (i < 0) i = s.Measures.ToList().FindIndex(m => m.Type == ColumnType.Money);
+        if (i >= 0) return (i, true);
+        return (0, false);
     }
 
     private static string Money(object? o) => Convert.ToDecimal(o, CultureInfo.InvariantCulture).ToString("N2", CultureInfo.InvariantCulture);

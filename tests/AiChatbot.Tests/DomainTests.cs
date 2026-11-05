@@ -109,7 +109,7 @@ public class DomainTests
     public void Every_tool_declares_a_complete_contract()
     {
         var all = Registry(new FakeExecutor()).Modules.SelectMany(m => m.Tools).ToList();
-        Assert.Equal(6, all.Count);
+        Assert.Equal(12, all.Count);
         Assert.Equal(all.Count, all.Select(t => t.Name).Distinct().Count());
         foreach (var t in all)
         {
@@ -177,7 +177,7 @@ public class DomainTests
         var plan = Plan("show payments by payer and the aging of open balances");
         Assert.Equal(PlanKind.Multi, plan.Kind);
         Assert.Equal(["payments", "accounts receivable"], plan.Domains);
-        Assert.Equal(3, plan.ToolNames.Count);
+        Assert.Equal(5, plan.ToolNames.Count);
     }
 
     [Theory]
@@ -188,7 +188,7 @@ public class DomainTests
     {
         var plan = Plan(question);
         Assert.Equal(PlanKind.Open, plan.Kind);
-        Assert.Equal(6, plan.ToolNames.Count);
+        Assert.Equal(12, plan.ToolNames.Count);
     }
 
     [Theory]
@@ -258,7 +258,7 @@ public class DomainTests
 
         await Ask(agent, "show payments by payer for last month", new ChatTurn(Manager, "c"));
 
-        Assert.Equal(["GetInsuranceVsPatientPayments", "GetPaymentsByPayer"],
+        Assert.Equal(["GetInsuranceVsPatientPayments", "GetPaymentsByMonth", "GetPaymentsByPayer", "GetPaymentsByPractice"],
             client.LastOptions!.Tools!.Select(t => t.Name).Order().ToArray());
         Assert.Contains("Plan: this question is about payments received", client.Rounds[0][0].Text);
     }
@@ -271,7 +271,7 @@ public class DomainTests
 
         await Ask(agent, "payments by payer and aging of balances", new ChatTurn(Manager, "c"));
 
-        Assert.Equal(3, client.LastOptions!.Tools!.Count);
+        Assert.Equal(5, client.LastOptions!.Tools!.Count);
         Assert.Contains("several parts (payments and accounts receivable)", client.Rounds[0][0].Text);
     }
 

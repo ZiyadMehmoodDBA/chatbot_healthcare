@@ -51,6 +51,16 @@ public static class ReportDigests
                        $"adjustments {Money(t[10])}, patient responsibility {Money(t[11])}, patient balance {Money(t[12])}.";
             }
             default:
+                if (GroupedReports.Find(id) is { } grouped)
+                {
+                    var (mi, money) = ReportModuleMeasure(grouped);
+                    var at = grouped.Groups.Count + mi;
+                    var label = string.Join(" / ", Enumerable.Range(0, grouped.Groups.Count).Select(i => Text(rows[0][i])));
+                    var total = rows.Sum(x => Dec(x[at]));
+                    var name = grouped.Measures[mi].Label.ToLowerInvariant();
+                    return $"{p}: {Count(rows.Count, "row")}; first is {label} with {(money ? Money(rows[0][at]) : Num(rows[0][at]))} {name}; " +
+                           $"listed total {(money ? Money(total) : Num(total))}.";
+                }
                 return $"{p}: {Count(rows.Count, "row")}.";
         }
     }
@@ -68,6 +78,10 @@ public static class ReportDigests
             ReportCatalog.ClaimVolume => ("claimCount", "Unique claims across the listed providers", 'n', false),
             ReportCatalog.DaysToBill => ("avgDays", "Average days to bill", 'd', true),
             ReportCatalog.Denials => ("claimCount", "Claims with a status entry (accepted or rejected)", 'n', true),
+            _ when GroupedReports.Find(id) is { } gs
+                => (gs.Measures[ReportModuleMeasure(gs).Index].Name,
+                    $"{gs.Measures[ReportModuleMeasure(gs).Index].Label} across the listed rows",
+                    ReportModuleMeasure(gs).Money ? 'm' : 'n', false),
             _ => ("", "", 'n', true),
         };
         var names = r.Columns.Select(c => c.Name).ToList();
@@ -93,6 +107,13 @@ public static class ReportDigests
             ? $" Note: the {which} period runs past the data-through date, so this comparison is incomplete."
             : "";
         return $"{label}, {r.Evidence.Period}: {F(cur)} versus {F(pri)}, {move}.{through}{partial}";
+    }
+
+    private static (int Index, bool Money) ReportModuleMeasure(GroupedSpec s)
+    {
+        var i = s.Measures.ToList().FindIndex(m => m.Name is "combinedPayments");
+        if (i < 0) i = s.Measures.ToList().FindIndex(m => m.Type == ColumnType.Money);
+        return i >= 0 ? (i, true) : (0, false);
     }
 
     private static string Count(int n, string noun) => $"{n.ToString("N0", CultureInfo.InvariantCulture)} {noun}{(n == 1 ? "" : "s")}";

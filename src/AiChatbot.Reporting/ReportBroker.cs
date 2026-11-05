@@ -183,7 +183,10 @@ public sealed class ReportBroker(
                         extra = _queries.DenialsOverall(start, end, practices, request.PayerId, options);
                         break;
                     default:
-                        throw new ReportException(ReportErrorKind.NotFound, "Unknown report");
+                        if (GroupedReports.Find(def.Id) is not { } grouped)
+                            throw new ReportException(ReportErrorKind.NotFound, "Unknown report");
+                        query = _queries.Grouped(grouped, basis, start, end, practices, request.PayerId, request.ProviderId, topN, options);
+                        break;
                 }
             }
 
@@ -259,6 +262,8 @@ public sealed class ReportBroker(
     // Reports with an overall figure or a totals row take it from the second query.
     private static List<IReadOnlyList<object?>> ShapeAll(string id, List<object?[]> raw, IReadOnlyList<object?[]>? extra)
     {
+        if (GroupedReports.Find(id) is { } spec)
+            return raw.Select(r => ShapeGrouped(spec, r)).ToList();
         var rows = raw.Select(r => Shape(id, r)).ToList();
         switch (id)
         {
@@ -289,6 +294,19 @@ public sealed class ReportBroker(
         _ => [Text(r[0]), Text(r[1]), Int(r[2]), Dec(r[3]), Dec(r[4]), Dec(r[5]), Dec(r[6]), Dec(r[7]), Dec(r[8]),
               Dec(r[3]) + Dec(r[4]) + Dec(r[5]) + Dec(r[6]) + Dec(r[7]) + Dec(r[8])],
     };
+
+    // Grouping columns are text, measures follow the declared type; nothing is computed by the model
+    private static IReadOnlyList<object?> ShapeGrouped(GroupedSpec spec, object?[] r)
+    {
+        var o = new List<object?>();
+        for (var i = 0; i < spec.Groups.Count; i++) o.Add(Text(r[i]));
+        for (var i = 0; i < spec.Measures.Count; i++)
+        {
+            var v = r[spec.Groups.Count + i];
+            o.Add(spec.Measures[i].Type == ColumnType.Integer ? (object)Int(v) : Dec(v));
+        }
+        return o;
+    }
 
     private static string Day(object? v)
         => v is null ? "" : Convert.ToDateTime(v, CultureInfo.InvariantCulture).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

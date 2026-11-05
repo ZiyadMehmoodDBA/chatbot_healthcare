@@ -3,77 +3,285 @@
   "note": "A metric becomes Approved only when the business owner signs every decision it depends on. Evidence below was read from MedcareDW_Dev on 2026-11-05 (aggregate checks only). Evidence is not proof: the owner confirms against the source billing system.",
   "decisions": [
     {
-      "id": "DEC-01", "title": "Which columns are the real payment amounts",
+      "id": "DEC-01",
+      "title": "Which columns are the real payment amounts",
       "question": "InsurancePayments + PatientPayments, or InsuranceAmountPaid + PatientAmountPaid?",
       "evidence": "Pair A totals 362.1M, pair B totals 53.8M over the same rows. Pair B matches Amount_Paid on every row. On the sampled row, InsurancePayments equals Charge_Amount (717.00) and InsuranceAmountPaid holds 79.30. 370,392 rows have InsuranceAmountPaid = 0 but InsurancePayments > 0. Total charges on these rows are 605.9M.",
-      "options": ["Pair A (current)", "Pair B", "Neither: a different source"],
+      "options": [
+        "Pair A (current)",
+        "Pair B",
+        "Neither: a different source"
+      ],
       "recommendation": "Pair B, if the owner confirms with a known claim in the billing system that 79.30 was the amount received.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     },
     {
-      "id": "DEC-02", "title": "Payment date basis",
+      "id": "DEC-02",
+      "title": "Payment date basis",
       "question": "Report payments by posting date or deposit date?",
       "evidence": "Posting_Date is never empty (2024-03-05 to 2026-06-05). Deposit_Date is empty on 588,569 rows and uses 1900-01-01 as a placeholder.",
-      "options": ["Posting date", "Deposit date"],
+      "options": [
+        "Posting date",
+        "Deposit date"
+      ],
       "recommendation": "Posting date.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     },
     {
-      "id": "DEC-03", "title": "Denial versus rejection",
+      "id": "DEC-03",
+      "title": "Denial versus rejection",
       "question": "Which status values count as a denial, and which as a rejection?",
       "evidence": "FactPayerRejectionReason holds only Accepted (278,572 claims) and Rejected (15,876 claims). 7,473 claims have both. Accepted means receipt acknowledged, not paid. The table has no remittance denial codes.",
-      "options": ["Rejected = rejection; denials need a remittance source", "Treat Rejected as denial", "Other"],
+      "options": [
+        "Rejected = rejection; denials need a remittance source",
+        "Treat Rejected as denial",
+        "Other"
+      ],
       "recommendation": "Call Rejected a rejection. Measure true denials only after a remittance (835) source is loaded.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     },
     {
-      "id": "DEC-04", "title": "Days to bill: start and end events",
+      "id": "DEC-04",
+      "title": "Days to bill: start and end events",
       "question": "Days from date of service to which event?",
       "evidence": "FactDaysToBill has 0 rows. FactGlobalKPIClaimSubmissionsHistory has 1,998,693 rows. First submission joined to date of service covers 494,075 claims, average 29.5 days, 1 negative gap. 213,194 claims in FactClaimCount have no submission history. DOE minus DOS averages 124.8 days, so DOE does not look like a billing date.",
-      "options": ["DOS to first submission (from submission history)", "DOS to date of entry", "Wait for FactDaysToBill to be loaded"],
+      "options": [
+        "DOS to first submission (from submission history)",
+        "DOS to date of entry",
+        "Wait for FactDaysToBill to be loaded"
+      ],
       "recommendation": "DOS to first submission from submission history, with the 213k uncovered claims shown as a coverage figure.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     },
     {
-      "id": "DEC-05", "title": "Practice_Code uniqueness",
+      "id": "DEC-05",
+      "title": "Practice_Code uniqueness",
       "question": "Is Practice_Code unique across all source servers?",
       "evidence": "In MedcareDW_Dev there are 3 practice codes and no claim number appears under more than one. Production and other source servers are unchecked.",
-      "options": ["Unique everywhere", "Unique only with a source-server key"],
+      "options": [
+        "Unique everywhere",
+        "Unique only with a source-server key"
+      ],
       "recommendation": "Confirm with the data team before any cross-practice report goes beyond these three practices.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     },
     {
-      "id": "DEC-06", "title": "Duplicate claim lines in FactClaimCount",
+      "id": "DEC-06",
+      "title": "Duplicate claim lines in FactClaimCount",
       "question": "How are duplicate claim lines handled when counting lines?",
       "evidence": "888 extra copies among 923,035 rows (same claim, sequence and procedure) for the three practices. Claim counts use distinct claims and are unaffected.",
-      "options": ["Count lines as stored", "Count distinct claim, sequence and procedure"],
+      "options": [
+        "Count lines as stored",
+        "Count distinct claim, sequence and procedure"
+      ],
       "recommendation": "Count distinct lines.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     },
     {
-      "id": "DEC-07", "title": "Patient balance source",
+      "id": "DEC-07",
+      "title": "Patient balance source",
       "question": "Where is patient-level billing data loaded?",
       "evidence": "FactCPT_KPI has 0 rows in MedcareDW_Dev, so the patient billing balance always returns no lines.",
-      "options": ["A different database or server", "Load FactCPT_KPI here", "Use a different table"],
+      "options": [
+        "A different database or server",
+        "Load FactCPT_KPI here",
+        "Use a different table"
+      ],
       "recommendation": "Point the view at whichever source holds populated charge lines.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     },
     {
-      "id": "DEC-08", "title": "Business owner",
+      "id": "DEC-08",
+      "title": "Business owner",
       "question": "Who signs metric definitions?",
       "evidence": "The catalogue says 'RCM business owner (to be named)'.",
       "options": [],
       "recommendation": "Name one person and one backup.",
-      "status": "Open", "decidedBy": null, "decidedOn": null, "answer": null
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     }
   ],
   "metrics": [
-    { "reportId": "insurance-vs-patient-payments", "metricVersion": "0.1-draft", "approvalStatus": "Draft", "approvedBy": null, "approvedOn": null, "dependsOn": ["DEC-01", "DEC-02", "DEC-05", "DEC-08"] },
-    { "reportId": "payments-by-payer", "metricVersion": "0.1-draft", "approvalStatus": "Draft", "approvedBy": null, "approvedOn": null, "dependsOn": ["DEC-01", "DEC-02", "DEC-05", "DEC-08"] },
-    { "reportId": "insurance-ar-aging", "metricVersion": "0.1-draft", "approvalStatus": "Draft", "approvedBy": null, "approvedOn": null, "dependsOn": ["DEC-05", "DEC-08"] },
-    { "reportId": "claim-volume", "metricVersion": "0.1-draft", "approvalStatus": "Draft", "approvedBy": null, "approvedOn": null, "dependsOn": ["DEC-05", "DEC-06", "DEC-08"] },
-    { "reportId": "days-to-bill", "metricVersion": "0.1-draft", "approvalStatus": "Draft", "approvedBy": null, "approvedOn": null, "dependsOn": ["DEC-04", "DEC-05", "DEC-08"] },
-    { "reportId": "denial-analysis", "metricVersion": "0.1-draft", "approvalStatus": "Draft", "approvedBy": null, "approvedOn": null, "dependsOn": ["DEC-03", "DEC-05", "DEC-08"] },
-    { "reportId": "patient-billing-balance", "metricVersion": "0.1-draft", "approvalStatus": "Draft", "approvedBy": null, "approvedOn": null, "dependsOn": ["DEC-07", "DEC-08"] }
+    {
+      "reportId": "insurance-vs-patient-payments",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-01",
+        "DEC-02",
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "payments-by-payer",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-01",
+        "DEC-02",
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "insurance-ar-aging",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "claim-volume",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-06",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "days-to-bill",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-04",
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "denial-analysis",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-03",
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "patient-billing-balance",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-07",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "payments-by-practice",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-01",
+        "DEC-02",
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "payments-by-month",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-01",
+        "DEC-02",
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "claim-volume-by-practice",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-06",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "claim-volume-by-month",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-06",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "denials-by-payer",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-03",
+        "DEC-05",
+        "DEC-08"
+      ]
+    },
+    {
+      "reportId": "denials-by-month",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-03",
+        "DEC-05",
+        "DEC-08"
+      ]
+    }
   ]
 }

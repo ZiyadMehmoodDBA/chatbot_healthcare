@@ -245,9 +245,51 @@ public sealed partial class ReportQueries
     }
 
     // Latest date in the source, so a reader can see how fresh the data is. Scoped like the report itself.
+    // One query from a GroupedSpec. Every identifier comes from the spec (literals in GroupedReports) or from the
+    // validated view names; practice scope, dates and filters are bound parameters.
+    public ReportQuery Grouped(
+        GroupedSpec spec, string dateBasis, DateOnly start, DateOnly end, IReadOnlyList<long> practices,
+        long? payerId, long? providerId, int topN, ReportServiceOptions o)
+    {
+        var (view, dateCol, payerCol, providerCol) = GroupedSource(spec.Source, dateBasis);
+        var (p, scope) = Scope(practices);
+        p.AddRange(DateRange(start, end));
+        p.Add(new("@topN", DbType.Int32, topN));
+        var where = new StringBuilder($"{dateCol} >= @start AND {dateCol} < DATEADD(DAY, 1, @end) AND Practice_Code IN ({scope})");
+        if (payerCol is not null) Optional(where, p, payerCol, "@payerId", payerId);
+        if (providerCol is not null) Optional(where, p, providerCol, "@providerId", providerId);
+        string Sub(string s) => s.Replace("{date}", dateCol);
+        var groups = string.Join(", ", spec.Groups.Select(g => Sub(g.Sql)));
+        var measures = string.Join(", ", spec.Measures.Select(m => m.Sql));
+        var sql = $"""
+            SELECT TOP (@topN) {groups}, {measures}
+            FROM {view}
+            WHERE {where}
+            GROUP BY {groups}
+            ORDER BY {Sub(spec.OrderBy)}
+            """;
+        return new(sql, p, topN, o.CommandTimeoutSeconds);
+    }
+
+    private (string View, string DateColumn, string? PayerColumn, string? ProviderColumn) GroupedSource(GroupedSource source, string basis)
+        => source switch
+        {
+            Reporting.GroupedSource.Payments => (_payments, DateColumn(basis), "Payer_Id", "Rendering_Provider_ID"),
+            Reporting.GroupedSource.ClaimVolume => (_claimVolume, "DOS", null, "Rendering_Provider_ID"),
+            _ => (_denials, "Claim_Status_Date", "Ins_Payer_Id", null),
+        };
+
     public ReportQuery Freshness(string reportId, IReadOnlyList<long> practices, ReportServiceOptions o)
     {
         var (p, scope) = Scope(practices);
+        reportId = GroupedReports.Find(reportId) is { } g
+            ? g.Source switch
+            {
+                Reporting.GroupedSource.ClaimVolume => ReportCatalog.ClaimVolume,
+                Reporting.GroupedSource.Denials => ReportCatalog.Denials,
+                _ => ReportCatalog.InsuranceVsPatient,
+            }
+            : reportId;
         var (column, view) = reportId switch
         {
             ReportCatalog.InsuranceAging => ("Billed_Date", _insuranceAr),

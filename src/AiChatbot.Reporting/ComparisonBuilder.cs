@@ -17,13 +17,19 @@ public static class ComparisonBuilder
         [ReportCatalog.Denials] = ["claimCount"],
     };
 
-    public static bool CanCompare(string reportId) => Measures.ContainsKey(reportId);
+    public static bool CanCompare(string reportId) => Measures.ContainsKey(reportId) || GroupedReports.Find(reportId) is not null;
+
+    // Grouped reports compare their money and count measures, but not every column of a wide one
+    private static string[]? MeasuresFor(string reportId)
+        => Measures.TryGetValue(reportId, out var m) ? m
+         : GroupedReports.Find(reportId) is { } g ? g.Measures.Select(x => x.Name).Where(n => n != "recordCount" && n != "lineCount" && n != "insurancePayments" && n != "patientPayments").ToArray()
+         : null;
 
     public static ReportResult Build(
         ReportResult current, ReportResult prior, IReadOnlyList<string>? extraCaveats = null, string? incomplete = null)
     {
         var id = current.Evidence.ReportId;
-        if (!Measures.TryGetValue(id, out var wanted))
+        if (MeasuresFor(id) is not { } wanted)
             throw new ReportException(ReportErrorKind.Invalid, "This report cannot be compared across periods");
         var cols = current.Columns;
         var keys = Enumerable.Range(0, cols.Count).Where(i => cols[i].Type == ColumnType.Text).ToArray();

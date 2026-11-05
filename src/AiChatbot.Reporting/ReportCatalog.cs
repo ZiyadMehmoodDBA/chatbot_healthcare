@@ -39,7 +39,7 @@ public static class ReportCatalog
         "The source holds one row per payment posting on a claim line; a claim can appear on several rows. Unique claims are counted by Claim_No. Eight exact duplicate rows exist in about 1.3 million.",
     ];
 
-    public static readonly IReadOnlyList<ReportDefinition> All =
+    private static readonly IReadOnlyList<ReportDefinition> BaseReports =
     [
         new(InsuranceVsPatient,
             "Insurance vs. patient payments",
@@ -201,6 +201,27 @@ public static class ReportCatalog
                 "Balances are the current load of the source table; past balances cannot be reproduced.",
             ],
             PatientRoles, PatientLevel: true),
+    ];
+
+    // Reports defined by data (GroupedReports): by practice, by month, denials by payer. They share the caveats of the
+    // report they group, so an open decision on the parent shows on every grouping of it.
+    public static readonly IReadOnlyList<ReportDefinition> All =
+    [
+        .. BaseReports,
+        .. GroupedReports.Definitions(
+            new Dictionary<string, IReadOnlyList<string>>
+            {
+                ["payments"] = PaymentCaveats,
+                ["claims"] = BaseReports.First(r => r.Id == ClaimVolume).Caveats,
+                ["denials"] = BaseReports.First(r => r.Id == Denials).Caveats,
+            },
+            Owner, AllRoles,
+            new Dictionary<GroupedSource, (string Source, string Basis)>
+            {
+                [GroupedSource.Payments] = (PaymentSource, Posting),
+                [GroupedSource.ClaimVolume] = ("dbo.FactClaimCount via reporting view", ServiceDate),
+                [GroupedSource.Denials] = ("dbo.FactPayerRejectionReason via reporting view", StatusDate),
+            }),
     ];
 
     // Safe to write to logs and the audit table: a catalog id, or "unknown" for anything the caller made up

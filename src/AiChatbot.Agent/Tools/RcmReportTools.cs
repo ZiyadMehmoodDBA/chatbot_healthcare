@@ -15,6 +15,12 @@ public sealed class RcmReportTools
     public const string ClaimVolume = "GetClaimVolume";
     public const string DaysToBill = "GetDaysToBill";
     public const string Denials = "GetDenialAnalysis";
+    public const string PaymentsByPractice = "GetPaymentsByPractice";
+    public const string PaymentsByMonth = "GetPaymentsByMonth";
+    public const string ClaimVolumeByPractice = "GetClaimVolumeByPractice";
+    public const string ClaimVolumeByMonth = "GetClaimVolumeByMonth";
+    public const string DenialsByPayer = "GetDenialsByPayer";
+    public const string DenialsByMonth = "GetDenialsByMonth";
 
     private const string Dates =
         "\"startDate\":{\"type\":\"string\",\"description\":\"First day, YYYY-MM-DD\"}," +
@@ -52,6 +58,12 @@ public sealed class RcmReportTools
                     new(Spec(PaymentsByPayer, "payments", ReportCatalog.PaymentsByPayer,
                         "Payers ranked by combined payments received in a posting-date period.",
                         Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.PaymentsByPayer, "PAYER"),
+                    new(Spec(PaymentsByPractice, "payments", GroupedReports.PaymentsByPractice,
+                        "Payments received in a posting-date period, by practice, largest first.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.PaymentsByPractice, "PRACTICE_PAY"),
+                    new(Spec(PaymentsByMonth, "payments", GroupedReports.PaymentsByMonth,
+                        "Payments received by posting month, oldest first. Use for trends over several months.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.PaymentsByMonth, "MONTH_PAY"),
                 ],
                 broker),
             new ReportModule(
@@ -74,6 +86,12 @@ public sealed class RcmReportTools
                     new(Spec(ClaimVolume, "claims", ReportCatalog.ClaimVolume,
                         "Unique claims, claim lines and charges by practice and rendering provider for a date-of-service period.",
                         Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.ClaimVolume, "CLAIMS"),
+                    new(Spec(ClaimVolumeByPractice, "claims", GroupedReports.ClaimVolumeByPractice,
+                        "Unique claims, lines and charges by practice for a date-of-service period.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.ClaimVolumeByPractice, "CLAIMS_PRACTICE"),
+                    new(Spec(ClaimVolumeByMonth, "claims", GroupedReports.ClaimVolumeByMonth,
+                        "Unique claims, lines and charges by month of service, oldest first. Use for trends.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.ClaimVolumeByMonth, "CLAIMS_MONTH"),
                     new(Spec(DaysToBill, "claims", ReportCatalog.DaysToBill,
                         "Average and longest days from date of service to first submission, overall and by payer, for claims first submitted in the period.",
                         Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.DaysToBill, "DTB"),
@@ -87,6 +105,12 @@ public sealed class RcmReportTools
                     new(Spec(Denials, "denials", ReportCatalog.Denials,
                         "Claims with a denial or rejection status entry in the period, overall and by status and reason. Counts claims, never dollars.",
                         Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.Denials, "DENIAL"),
+                    new(Spec(DenialsByPayer, "denials", GroupedReports.DenialsByPayer,
+                        "Claims with a claim-status entry by payer and status in the period. Counts claims, never dollars.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.DenialsByPayer, "DENIAL_PAYER"),
+                    new(Spec(DenialsByMonth, "denials", GroupedReports.DenialsByMonth,
+                        "Claims with a claim-status entry by month and status, oldest first. Counts claims, never dollars.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.DenialsByMonth, "DENIAL_MONTH"),
                 ],
                 broker),
         ];
