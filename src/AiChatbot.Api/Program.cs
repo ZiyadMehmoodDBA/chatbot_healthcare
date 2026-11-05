@@ -43,11 +43,52 @@ builder.Services.AddHostedService<AuditWriterService>();
 builder.Services.AddHealthChecks().AddCheck<AuditHealthCheck>("audit");
 var authMode = builder.AddRcmAuth();
 builder.Services.AddLlm(builder.Configuration, Path.Combine(builder.Environment.ContentRootPath, "settings.json"));
+builder.Services.Configure<UsageOptions>(builder.Configuration.GetSection("Usage"));
+builder.Services.AddSingleton(sp => new UsageMeter(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<UsageOptions>>().Value));
 builder.Services.AddScoped<ChatAgent>();
+
+// Edge limits per signed-in user (or per address when there is none). 429 when exceeded; 0 turns a limit off.
+var chatPerMinute = builder.Configuration.GetValue("RateLimit:ChatPerMinute", 30);
+var exportPerMinute = builder.Configuration.GetValue("RateLimit:ReportsPerMinute", 20);
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    static string Who(HttpContext ctx)
+        => ctx.RequestServices.GetService<IActorProvider>()?.Current?.UserId
+           ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    System.Threading.RateLimiting.RateLimitPartition<string> Fixed(HttpContext ctx, int limit)
+        => limit <= 0
+            ? System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter("off")
+            : System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(Who(ctx), _ =>
+                new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    o.AddPolicy("chat", ctx => Fixed(ctx, chatPerMinute));
+    o.AddPolicy("reports", ctx => Fixed(ctx, exportPerMinute));
+});
 
 var app = builder.Build();
 
+// Response headers for an API: no sniffing, no framing, nothing cached (answers can hold business figures), no referrer
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.OnStarting(() =>
+    {
+        var h = ctx.Response.Headers;
+        h["X-Content-Type-Options"] = "nosniff";
+        h["X-Frame-Options"] = "DENY";
+        h["Referrer-Policy"] = "no-referrer";
+        if (ctx.Request.Path.StartsWithSegments("/api"))
+        {
+            h["Cache-Control"] = "no-store";
+            h["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        }
+        return Task.CompletedTask;
+    });
+    await next();
+});
+
 app.UseRcmAuth(authMode);
+app.UseRateLimiter();
 
 app.MapSettingsEndpoints();
 app.MapReportEndpoints(authMode);
@@ -128,13 +169,15 @@ var chatEndpoint = app.MapPost("/api/chat", async (ChatRequest req, HttpContext 
         // One structured line per question: who, what the coordinator decided, each tool call, how long. It joins the
         // report audit lines by correlation id. Prompt text and result values are never logged.
         log.LogInformation(
-            "ChatTrace corr={CorrelationId} user={UserId} role={Role} model={Model} ms={Ms} reports={Reports} steps={Steps}",
+            "ChatTrace corr={CorrelationId} user={UserId} role={Role} model={Model} ms={Ms} reports={Reports} rounds={Rounds} tokens_in={TokensIn} tokens_out={TokensOut} est_cost_usd={CostUsd} steps={Steps}",
             turn.CorrelationId, actor.UserId, actor.Role, modelName, started.ElapsedMilliseconds, turn.Reports.Count,
+            turn.ModelRounds, turn.InputTokens, turn.OutputTokens, turn.EstimatedCostUsd,
             string.Join(" | ", turn.Trace.Select(t => $"{t.Kind}:{t.Name}:{t.Outcome}:{t.Ms}ms" + (t.Detail is null ? "" : $"({t.Detail})"))));
     }
     return Results.Empty;
 });
 if (authMode == AuthSetup.ModeAzureAd) chatEndpoint.RequireAuthorization(AuthSetup.Policy);
+chatEndpoint.RequireRateLimiting("chat");
 
 app.Run();
 

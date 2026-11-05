@@ -184,8 +184,9 @@ Enforced in one library, in front of every model call.
 | In-process modules, no MCP transport | Spec shows a Reporting MCP server. | Add transport behind `IDomainModule` later. |
 | Hostnames not resolved for SSRF checks | A name pointing at a blocked address passes. | Connect-time address guard; operator allowlist (`Reports:AllowedServers`). |
 | Saved password reused after weaker transport flags | Turning encryption off keeps the saved password. | Include Encrypt/Trust in the reuse rule. |
-| In-memory conversation store and token vault | Lost on restart; single instance only. | Persist behind `IConversationStore`; sticky or shared store for scale-out. |
+| In-memory conversation store and token vault | Lost on restart; single instance only. Session memory (turns, last report/table) is now durable (`chatbot.SessionState`); model history and token vault are not. | Persist behind `IConversationStore`; sticky or shared store for scale-out. |
 | Reporting views cover only payments and insurance A/R | Other billing areas have no view. | Write views with the data owner as each report is added. |
+| ~~No rate limits, response headers or model budget~~ | Closed in step 14: `RateLimit:*`, security headers, `Usage:*` budget and token/cost trace. Per-process counters; shared store needed for scale-out. See docs/Acceptance_Evidence.md. | Gateway/WAF at deploy. |
 | PHI handling is a fixed policy | No per-field allow/deny. | Configurable PHI policy in `Safety`. |
 
 ## 10. Key decisions

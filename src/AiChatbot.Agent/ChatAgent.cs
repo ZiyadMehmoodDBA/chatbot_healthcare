@@ -13,7 +13,7 @@ namespace AiChatbot.Agent;
 // The "Agent" box: owns history and talks to the LLM. Everything that goes in or out passes the safe-to-share layer.
 public sealed class ChatAgent(
     IChatClientProvider llm, IConversationStore store, SafeToShareLayer safety, ReportTools tools, RcmReportTools? rcm = null,
-    ISessionMemory? memory = null)
+    ISessionMemory? memory = null, UsageMeter? usage = null)
 {
     // Session memory: first/last question, recap, follow-up context, pending clarification. Server-side only.
     private readonly ISessionMemory _memory = memory ?? new InMemorySessionMemory();
@@ -185,6 +185,17 @@ public sealed class ChatAgent(
             }
         }
 
+        // Daily model budget: only questions that need the model stop; everything decided in code kept working above
+        if (rcmMode && usage is not null && usage.OverBudget(turn!.Actor!.UserId))
+        {
+            turn.Trace.Add(new TraceStep("budget", "model", "refused"));
+            store.AddMessages(conversationId,
+                new ChatMessage(ChatRole.User, prepared.Text), new ChatMessage(ChatRole.Assistant, UsageMeter.BudgetReply));
+            _memory.AddTurn(conversationId, prepared.Text, TurnKind.Refused, UsageMeter.BudgetReply, [], rcm!.UtcNow);
+            yield return UsageMeter.BudgetReply;
+            yield break;
+        }
+
         var userMessage = new ChatMessage(ChatRole.User, prepared.Text);
         var messages = store.GetHistory(conversationId).Append(userMessage)
             .Prepend(new ChatMessage(ChatRole.System, rcmMode ? RcmSystemPrompt(rcm!.Today, plan, brief, context) : SystemPrompt))
@@ -212,10 +223,18 @@ public sealed class ChatAgent(
             var text = new StringBuilder();
             // The last round offers no tools, so the model has to answer
             var options = round < MaxToolRounds ? withTools : withoutTools;
+            long roundIn = 0, roundOut = 0;
             await foreach (var update in chat.Client.GetStreamingResponseAsync(messages, options, ct))
             {
                 foreach (var c in update.Contents)
+                {
                     if (c is FunctionCallContent call) calls.Add(call);
+                    else if (c is UsageContent u)
+                    {
+                        roundIn += u.Details.InputTokenCount ?? 0;
+                        roundOut += u.Details.OutputTokenCount ?? 0;
+                    }
+                }
                 if (string.IsNullOrEmpty(update.Text)) continue;
                 text.Append(update.Text);
                 if (!live) continue;
@@ -226,6 +245,14 @@ public sealed class ChatAgent(
             {
                 var rest = stream.Flush();
                 if (rest.Length > 0) { shownText.Append(rest); yield return rest; }
+            }
+            // Counted per round, as it happens, so a failure later in the question still shows what was used
+            if (turn is not null)
+            {
+                turn.InputTokens += roundIn;
+                turn.OutputTokens += roundOut;
+                turn.ModelRounds++;
+                if (rcmMode) usage?.Record(turn.Actor!.UserId, roundIn, roundOut, 1);
             }
 
             if (calls.Count == 0) { finalText = text.ToString(); break; }
@@ -249,7 +276,9 @@ public sealed class ChatAgent(
             finalText = NoReportReply;
         }
 
-        turn?.Trace.Add(new TraceStep("llm", chat.Model, "ok", Detail: $"rounds={rounds}"));
+        if (turn is not null && usage is not null) turn.EstimatedCostUsd = usage.EstimateCost(turn.InputTokens, turn.OutputTokens);
+        turn?.Trace.Add(new TraceStep("llm", chat.Model, "ok",
+            Detail: $"rounds={rounds}" + (turn is { InputTokens: > 0 } or { OutputTokens: > 0 } ? $",tokens_in={turn.InputTokens},tokens_out={turn.OutputTokens}" : "")));
 
         if (!live)
         {

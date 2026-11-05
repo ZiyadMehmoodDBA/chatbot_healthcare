@@ -11,13 +11,15 @@ namespace AiChatbot.Tests;
 
 // The decision system: questions about the conversation, clarifying questions, the patient account flow and
 // follow-up context. All offline; a scripted model proves when a model is (not) called.
-public class ConversationTests
+public partial class ConversationTests
 {
     // ----- fakes -----
 
     private sealed class ScriptedClient(params ChatResponseUpdate[][] rounds) : IChatClient
     {
         public List<List<ChatMessage>> Rounds { get; } = [];
+        // Simulates a model outage: any call to the model fails
+        public bool Fail { get; set; }
 
         public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> m, ChatOptions? o = null, CancellationToken ct = default)
             => throw new NotSupportedException();
@@ -26,6 +28,7 @@ public class ConversationTests
             IEnumerable<ChatMessage> m, ChatOptions? o = null, [EnumeratorCancellation] CancellationToken ct = default)
         {
             Rounds.Add(m.ToList());
+            if (Fail) throw new InvalidOperationException("model unavailable");
             foreach (var u in rounds[Math.Min(Rounds.Count, rounds.Length) - 1])
             {
                 await Task.Yield();
@@ -123,6 +126,9 @@ public class ConversationTests
         => BuildWith(new InMemorySessionMemory(), kind, rounds);
 
     private static Rig BuildWith(ISessionMemory memory, ProviderKind kind = ProviderKind.Local, params ChatResponseUpdate[][] rounds)
+        => BuildFull(memory, null, kind, rounds);
+
+    private static Rig BuildFull(ISessionMemory memory, UsageMeter? usage, ProviderKind kind, params ChatResponseUpdate[][] rounds)
     {
         var client = new ScriptedClient(rounds.Length == 0 ? [Text("ok")] : rounds);
         var tokens = new TokenizationService();
@@ -131,7 +137,7 @@ public class ConversationTests
         var audit = new CaptureAudit();
         var broker = new ReportBroker(exec, audit, new ReportServiceOptions(), () => Now);
         var agent = new ChatAgent(new FakeProvider(client, kind), new InMemoryConversationStore(), layer,
-            new ReportTools(new SyntheticReportDataReader(), tokens), new RcmReportTools(broker, () => Now), memory);
+            new ReportTools(new SyntheticReportDataReader(), tokens), new RcmReportTools(broker, () => Now), memory, usage);
         return new Rig { Agent = agent, Client = client, Exec = exec, Audit = audit, Memory = memory };
     }
 

@@ -51,6 +51,7 @@ public static class ReportEndpoints
     {
         var g = app.MapGroup("/api/reports");
         if (authMode == AuthSetup.ModeAzureAd) g.RequireAuthorization(AuthSetup.Policy);
+        g.RequireRateLimiting("reports");
 
         g.MapGet("/", (HttpContext ctx, IActorProvider who, ReportBroker broker, IReportAudit audit) =>
             ActorGate.Deny(ctx, who.Current, audit, "catalog", "list") ?? Results.Ok(broker.CatalogFor(who.Current!)));

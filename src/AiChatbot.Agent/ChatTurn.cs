@@ -16,6 +16,12 @@ public sealed class ChatTurn(Actor? actor, string correlationId)
     // One line per decision or tool call, for the structured trace the host logs under CorrelationId
     public List<TraceStep> Trace { get; } = [];
     public int ToolCalls { get; set; }
+
+    // Model use for this question (zero when the answer came from code). Counts only; no text.
+    public long InputTokens { get; set; }
+    public long OutputTokens { get; set; }
+    public int ModelRounds { get; set; }
+    public decimal EstimatedCostUsd { get; set; }
 }
 
 // Kind: plan | tool | llm. Detail never holds user text or result values: names, counts and outcomes only.
