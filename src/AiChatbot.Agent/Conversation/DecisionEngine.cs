@@ -67,6 +67,11 @@ public static partial class DecisionEngine
         // 2. Questions about the conversation itself. A side question never loses the open one.
         if (intent != MetaIntent.None)
         {
+            // A replay can quote patient figures: only for a role that may still look up patient accounts
+            if (!patientAllowed && intent is MetaIntent.SummarizeLast or MetaIntent.Repeat or MetaIntent.Recap
+                && session.Turns.Any(t => t.Kind == TurnKind.Patient))
+                return new ReplyDecision("Your role can't view patient account results, so I won't repeat them.",
+                    TurnKind.Memory, $"memory: {intent} withheld (role)");
             var answer = intent switch
             {
                 MetaIntent.FirstQuestion => MemoryAnswers.First(session),

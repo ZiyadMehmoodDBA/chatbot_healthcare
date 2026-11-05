@@ -113,6 +113,10 @@ public sealed class InMemorySessionMemory : ISessionMemory
             s.Pending = null;
             s.ActiveAccount = null;
             s.LastReport = null;
+            // Patient figures are not kept past "start over": the turn stays on record, its answer does not
+            for (var i = 0; i < s.Turns.Count; i++)
+                if (s.Turns[i].Kind == TurnKind.Patient)
+                    s.Turns[i] = s.Turns[i] with { Answer = "(patient result cleared)", Reports = [] };
         }
     }
 

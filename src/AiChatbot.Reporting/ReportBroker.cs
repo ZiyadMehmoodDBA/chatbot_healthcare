@@ -16,6 +16,9 @@ public sealed class ReportServiceOptions
     public string PatientBillingView { get; set; } = "reporting.vw_Rpt_PatientBilling";
     // Claim lines shown for one patient account; the totals row always covers every line
     public int MaxPatientRows { get; set; } = 200;
+    // Secret for the audit account reference (HMAC key). Unset: a random key per process, so references are not
+    // stable across restarts but can never be reversed. Set it (key vault or configuration) to correlate across restarts.
+    public string? AccountRefKey { get; set; }
     public int CommandTimeoutSeconds { get; set; } = 30;
     public int MaxRangeDays { get; set; } = 366;
     public int DefaultTopN { get; set; } = 10;
@@ -74,6 +77,9 @@ public sealed class ReportBroker(
     IReportExecutor executor, IReportAudit audit, ReportServiceOptions options, Func<DateTime>? clock = null)
 {
     private readonly ReportQueries _queries = new(options);
+    private readonly byte[] _refKey = !string.IsNullOrEmpty(options.AccountRefKey)
+        ? System.Text.Encoding.UTF8.GetBytes(options.AccountRefKey) : ProcessKey;
+    private static readonly byte[] ProcessKey = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
     private readonly Func<DateTime> _now = clock ?? (() => DateTime.UtcNow);
 
     public IReadOnlyList<ReportDefinition> CatalogFor(Actor actor)
@@ -223,10 +229,11 @@ public sealed class ReportBroker(
         return (s, e);
     }
 
-    // First 10 hex characters of a SHA-256 of the account number: enough to spot a repeat lookup, useless as an identifier
-    public static string AccountRef(long account)
-        => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(account.ToString(CultureInfo.InvariantCulture))))[..10].ToLowerInvariant();
+    // Keyed reference for audit and evidence: first 10 hex characters of HMAC-SHA-256(key, account). Enough to spot a
+    // repeat lookup; without the key it cannot be recomputed from an account number (a plain hash of a short number can).
+    public string AccountRef(long account)
+        => Convert.ToHexString(System.Security.Cryptography.HMACSHA256.HashData(
+            _refKey, System.Text.Encoding.UTF8.GetBytes(account.ToString(CultureInfo.InvariantCulture))))[..10].ToLowerInvariant();
 
     // Sums come from SQL; shares, totals and differences are computed here in decimal, never by the model.
     // Reports with an overall figure or a totals row take it from the second query.

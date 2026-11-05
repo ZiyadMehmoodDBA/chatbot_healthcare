@@ -285,6 +285,33 @@ public class ConversationTests
     }
 
     [Fact]
+    public async Task Start_over_clears_the_patient_figures_from_the_record()
+    {
+        var rig = Build();
+        await rig.Say("statement for account 12345");
+        Assert.Contains(rig.Memory.Get(ScopeFor(rig)).Turns, t => t.Kind == TurnKind.Patient && t.Reports.Count > 0);
+
+        await rig.Say("start over");
+
+        var patientTurn = Assert.Single(rig.Memory.Get(ScopeFor(rig)).Turns, t => t.Kind == TurnKind.Patient);
+        Assert.Empty(patientTurn.Reports);
+        Assert.Equal("(patient result cleared)", patientTurn.Answer);
+    }
+
+    [Fact]
+    public async Task A_non_number_reply_to_the_account_question_is_kept_out_of_memory()
+    {
+        var rig = Build();
+        await rig.Say("I need the statement for a patient");
+
+        await rig.Say("John Smith");
+
+        var turns = rig.Memory.Get(ScopeFor(rig)).Turns;
+        Assert.DoesNotContain(turns, t => t.Question.Contains("John Smith"));
+        Assert.Contains(turns, t => t.Question == "[patient-flow reply withheld]");
+    }
+
+    [Fact]
     public async Task Start_over_forgets_the_patient_and_report_in_focus_but_keeps_the_record()
     {
         var rig = Build();
@@ -383,7 +410,7 @@ public class ConversationTests
         await rig.Say("what is the statement for account 12345");
 
         var entry = Assert.Single(rig.Audit.Entries, e => e.ReportId == ReportCatalog.PatientBilling);
-        Assert.Equal(ReportBroker.AccountRef(12345), entry.Filters["accountRef"]);
+        Assert.Equal(new ReportBroker(null!, null!, new ReportServiceOptions()).AccountRef(12345), entry.Filters["accountRef"]);
         Assert.DoesNotContain("12345", string.Join(";", entry.Filters.Select(f => f.Key + "=" + f.Value)));
     }
 

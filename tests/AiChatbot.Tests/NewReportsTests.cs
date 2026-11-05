@@ -210,8 +210,23 @@ public class NewReportsTests
         var entry = Assert.Single(audit.Entries);
         Assert.DoesNotContain("7654321", string.Join(";", entry.Filters.Values));
         Assert.Equal(10, entry.Filters["accountRef"].Length);
-        Assert.Equal(entry.Filters["accountRef"], ReportBroker.AccountRef(7654321));
-        Assert.NotEqual(ReportBroker.AccountRef(7654321), ReportBroker.AccountRef(7654322));
+        var same = new ReportBroker(null!, null!, new ReportServiceOptions());
+        Assert.Equal(entry.Filters["accountRef"], same.AccountRef(7654321));
+        Assert.NotEqual(same.AccountRef(7654321), same.AccountRef(7654322));
+    }
+
+    [Fact]
+    public void The_account_reference_is_keyed_so_a_plain_hash_cannot_recompute_it()
+    {
+        var a = new ReportBroker(null!, null!, new ReportServiceOptions { AccountRefKey = "key-one" });
+        var b = new ReportBroker(null!, null!, new ReportServiceOptions { AccountRefKey = "key-two" });
+        var plain = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes("12345")))[..10].ToLowerInvariant();
+
+        Assert.Equal(a.AccountRef(12345), new ReportBroker(null!, null!, new ReportServiceOptions { AccountRefKey = "key-one" }).AccountRef(12345));
+        Assert.NotEqual(a.AccountRef(12345), b.AccountRef(12345));
+        Assert.NotEqual(plain, a.AccountRef(12345));
+        Assert.NotEqual(plain, new ReportBroker(null!, null!, new ReportServiceOptions()).AccountRef(12345));
     }
 
     [Fact]

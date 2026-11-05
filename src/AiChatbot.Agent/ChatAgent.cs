@@ -247,6 +247,9 @@ public sealed class ChatAgent(
 
         // Memory answers quote earlier figures, so the model-facing history only notes that one was given
         var historyText = r.Kind == TurnKind.Memory ? "(Answered from the conversation record.)" : r.Text;
+        // A reply to "which account?" that was not a number may be a name: it is kept out of history and memory
+        if (r.Reason.Contains("reply was not an account number", StringComparison.Ordinal))
+            question = "[patient-flow reply withheld]";
         store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question), new ChatMessage(ChatRole.Assistant, historyText));
         _memory.AddTurn(conversationId, question, r.Kind, r.Kind == TurnKind.Memory ? "" : r.Text, [], now);
         return safety.Finalize(conversationId, r.Text, new Dictionary<string, string>());
