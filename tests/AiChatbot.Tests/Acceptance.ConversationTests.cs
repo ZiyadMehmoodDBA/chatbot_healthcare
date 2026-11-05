@@ -254,7 +254,7 @@ public partial class ConversationTests
     {
         var usage = new UsageMeter(new UsageOptions { InputPer1kTokensUsd = 0.5m, OutputPer1kTokensUsd = 1.5m });
         var rig = BuildFull(new InMemorySessionMemory(), usage, ProviderKind.Local,
-            Call(RcmReportTools.PaymentsByPayer, May), TextWithUsage("{PAYER_TOP_NAME}", 2000, 1000));
+            [.. Call(RcmReportTools.PaymentsByPayer, May), .. TextWithUsage("", 1000, 400)], TextWithUsage("{PAYER_TOP_NAME}", 1000, 600));
 
         var (_, turn) = await rig.Say("show payments by payer for last month");
 
@@ -327,6 +327,18 @@ public partial class ConversationTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => rig.Say("tell me about healthcare reporting"));
 
         Assert.Equal(1, usage.Get(Manager.UserId).ModelRounds);
+    }
+
+    [Fact]
+    public async Task AC12_a_round_with_no_reported_usage_is_charged_its_estimate()
+    {
+        var usage = new UsageMeter(new UsageOptions { DailyTokenBudgetPerUser = 100_000, MaxOutputTokensPerRound = 500 });
+        var rig = BuildFull(new InMemorySessionMemory(), usage, ProviderKind.Local, Text("hello"));
+        rig.Client.Fail = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => rig.Say("tell me about healthcare reporting"));
+
+        Assert.True(usage.Get(Manager.UserId).InputTokens >= 500);
     }
 
     [Fact]
@@ -421,5 +433,30 @@ public partial class ConversationTests
 
         Assert.DoesNotContain("Acme Health", string.Join("\n", ModelText(rig)));
         Assert.Contains("Acme Health", text);
+    }
+}
+
+public class UsageReservationTests
+{
+    [Fact]
+    public void In_flight_reservations_count_so_parallel_questions_cannot_overspend_tokens()
+    {
+        var meter = new UsageMeter(new UsageOptions { DailyTokenBudgetPerUser = 1000 });
+        var granted = 0;
+        Parallel.For(0, 40, _ => { if (meter.TryReserveRound("u", 300)) Interlocked.Increment(ref granted); });
+        Assert.Equal(4, granted); // 300 x 4 passes 1000 on the fourth; the next is refused
+    }
+
+    [Fact]
+    public void Settling_swaps_the_estimate_for_actual_use_and_charges_the_estimate_when_none_reported()
+    {
+        var meter = new UsageMeter(new UsageOptions { DailyTokenBudgetPerUser = 10_000 });
+        meter.TryReserveRound("a", 800);
+        meter.Settle("a", 800, 100, 50);
+        Assert.Equal(150, meter.Get("a").InputTokens + meter.Get("a").OutputTokens);
+
+        meter.TryReserveRound("b", 800);
+        meter.Settle("b", 800, 0, 0);
+        Assert.Equal(800, meter.Get("b").InputTokens);
     }
 }

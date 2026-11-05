@@ -227,7 +227,8 @@ public sealed class ChatAgent(
             // Budget is checked and charged before every round, not only the first: a question that loops through
             // tools cannot spend past the limit, and a cancelled or failed round still counts. RCM text is never
             // streamed live, so stopping here leaves nothing half shown.
-            if (rcmMode && usage is not null && !usage.TryReserveRound(turn!.Actor!.UserId))
+            long reserved = 0;
+            if (rcmMode && usage is not null && !usage.TryReserveRound(turn!.Actor!.UserId, reserved = EstimateRoundTokens(messages, usage.Options.MaxOutputTokensPerRound)))
             {
                 turn.Trace.Add(new TraceStep("budget", "model", "stopped", Detail: $"round={round + 1}"));
                 finalText = UsageMeter.BudgetReply;
@@ -261,7 +262,11 @@ public sealed class ChatAgent(
                 {
                     turn.InputTokens += roundIn;
                     turn.OutputTokens += roundOut;
-                    if (rcmMode) usage?.Record(turn.Actor!.UserId, roundIn, roundOut, 0);
+                    if (rcmMode && usage is not null)
+                    {
+                        usage.Settle(turn.Actor!.UserId, reserved, roundIn, roundOut);
+                        if (roundIn + roundOut == 0) turn.InputTokens += reserved; // estimate, as the budget charged it
+                    }
                 }
             }
             if (live)
@@ -527,6 +532,10 @@ public sealed class ChatAgent(
         hidden["note"] = "Values are inserted by the server. Write each placeholder exactly, with no digits.";
         return hidden;
     }
+
+    // Rough size of one round: about 4 characters a token for what is sent, plus the most the reply may use
+    private static long EstimateRoundTokens(IEnumerable<ChatMessage> messages, int maxOutput)
+        => messages.Sum(m => (long)(m.Text?.Length ?? 0)) / 4 + (maxOutput > 0 ? maxOutput : 2048);
 
     private static bool IsFreeText(string key) => key.EndsWith("_TOP_NAME", StringComparison.Ordinal) || key.EndsWith("_TOP_PROVIDER", StringComparison.Ordinal);
 

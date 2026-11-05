@@ -26,7 +26,7 @@ public sealed class UsageMeter(UsageOptions? options = null, Func<DateTime>? clo
 
     public const int MaxTrackedUsers = 10_000;
 
-    private sealed record Day(DateOnly Date, long In, long Out, int Rounds);
+    private sealed record Day(DateOnly Date, long In, long Out, int Rounds, long Reserved = 0);
 
     private readonly UsageOptions _o = options ?? new UsageOptions();
     private readonly Func<DateTime> _now = clock ?? (() => DateTime.UtcNow);
@@ -38,7 +38,7 @@ public sealed class UsageMeter(UsageOptions? options = null, Func<DateTime>? clo
     public bool OverBudget(string userId)
     {
         var d = Current(userId);
-        if (_o.DailyTokenBudgetPerUser > 0 && d.In + d.Out >= _o.DailyTokenBudgetPerUser) return true;
+        if (_o.DailyTokenBudgetPerUser > 0 && d.In + d.Out + d.Reserved >= _o.DailyTokenBudgetPerUser) return true;
         return _o.DailyModelRoundsPerUser > 0 && d.Rounds >= _o.DailyModelRoundsPerUser;
     }
 
@@ -46,13 +46,34 @@ public sealed class UsageMeter(UsageOptions? options = null, Func<DateTime>? clo
 
     // Atomic check-and-charge of one model round: concurrent questions cannot all pass the same remaining budget.
     // Charged before the call so a cancelled or failed round still counts; tokens are added afterwards by Record.
-    public bool TryReserveRound(string userId)
+    // estimatedTokens is held against the token budget while the round runs (in-flight reservations count), then
+    // swapped for the real figure by Settle.
+    public bool TryReserveRound(string userId, long estimatedTokens = 0)
     {
         lock (_gate)
         {
             if (OverBudget(userId)) return false;
-            Record(userId, 0, 0, 1);
+            var today = DateOnly.FromDateTime(_now());
+            var d = Current(userId);
+            _days[userId] = d with { Rounds = d.Rounds + 1, Reserved = d.Reserved + Math.Max(0, estimatedTokens) };
             return true;
+        }
+    }
+
+    // Replaces the reservation with what the round used. A round that reported no usage (cancelled, failed, or a
+    // provider that sends none) is charged its estimate, so it can never be free.
+    public void Settle(string userId, long reservedTokens, long inputTokens, long outputTokens)
+    {
+        lock (_gate)
+        {
+            var d = Current(userId);
+            var charged = inputTokens + outputTokens > 0 ? (inputTokens, outputTokens) : (reservedTokens, 0L);
+            _days[userId] = d with
+            {
+                Reserved = Math.Max(0, d.Reserved - Math.Max(0, reservedTokens)),
+                In = d.In + charged.Item1,
+                Out = d.Out + charged.Item2,
+            };
         }
     }
 
