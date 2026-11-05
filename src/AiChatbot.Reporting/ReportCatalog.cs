@@ -205,6 +205,19 @@ public static class ReportCatalog
 
     // Reports defined by data (GroupedReports): by practice, by month, denials by payer. They share the caveats of the
     // report they group, so an open decision on the parent shows on every grouping of it.
+    // Checked against MedcareDW_Dev on 2026-11-05 (aggregates only): Amount_Paid equals Insurance_Paid + Patient_Paid on every
+    // row (53.8M, the same total as the InsuranceAmountPaid pair in DEC-01). Charge = paid + adjusted on 66% of rows; the rest
+    // are unpaid or part-paid. 672 rows have negative adjustments. Billing_Status is richer than the denial table.
+    private static readonly string[] FinancialCaveats =
+    [
+        "Draft definition: not yet approved by the RCM business owner.",
+        "OPEN DECISION DEC-09: what Amount_Adjusted contains (contractual, write-offs, denials) is not confirmed, so no collection rate or net revenue is computed. Only raw sums are shown.",
+        "Date basis is the date of service. Amount paid matches insurance paid plus patient paid on every row, and its total agrees with the lower payment total in DEC-01, not the payment report's higher figure.",
+        "Charge equals paid plus adjusted on about two thirds of rows; the rest are unpaid or part-paid, so adjusted is not the whole gap between charges and payments.",
+        "Negative adjustments exist and are included in the sums.",
+        "The source holds one row per claim line; unique claims are counted by Claim_No. A claim can span more than one month of service.",
+    ];
+
     public static readonly IReadOnlyList<ReportDefinition> All =
     [
         .. BaseReports,
@@ -214,6 +227,7 @@ public static class ReportCatalog
                 ["payments"] = PaymentCaveats,
                 ["claims"] = BaseReports.First(r => r.Id == ClaimVolume).Caveats,
                 ["denials"] = BaseReports.First(r => r.Id == Denials).Caveats,
+                ["financials"] = FinancialCaveats,
             },
             Owner, AllRoles,
             new Dictionary<GroupedSource, (string Source, string Basis)>
@@ -221,6 +235,7 @@ public static class ReportCatalog
                 [GroupedSource.Payments] = (PaymentSource, Posting),
                 [GroupedSource.ClaimVolume] = ("dbo.FactClaimCount via reporting view", ServiceDate),
                 [GroupedSource.Denials] = ("dbo.FactPayerRejectionReason via reporting view", StatusDate),
+                [GroupedSource.ClaimFinancials] = ("dbo.FactClaimCount via reporting view", ServiceDate),
             }),
     ];
 

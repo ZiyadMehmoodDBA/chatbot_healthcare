@@ -17,6 +17,7 @@ public sealed partial class ReportQueries
     private readonly string _payments;
     private readonly string _insuranceAr;
     private readonly string _claimVolume;
+    private readonly string _claimFinancials;
     private readonly string _daysToBill;
     private readonly string _denials;
     private readonly string _patientBilling;
@@ -26,6 +27,7 @@ public sealed partial class ReportQueries
         _payments = ValidateViewName(options.PaymentsView, nameof(options.PaymentsView));
         _insuranceAr = ValidateViewName(options.InsuranceArView, nameof(options.InsuranceArView));
         _claimVolume = ValidateViewName(options.ClaimVolumeView, nameof(options.ClaimVolumeView));
+        _claimFinancials = ValidateViewName(options.ClaimFinancialsView, nameof(options.ClaimFinancialsView));
         _daysToBill = ValidateViewName(options.DaysToBillView, nameof(options.DaysToBillView));
         _denials = ValidateViewName(options.DenialsView, nameof(options.DenialsView));
         _patientBilling = ValidateViewName(options.PatientBillingView, nameof(options.PatientBillingView));
@@ -276,6 +278,7 @@ public sealed partial class ReportQueries
         {
             Reporting.GroupedSource.Payments => (_payments, DateColumn(basis), "Payer_Id", "Rendering_Provider_ID"),
             Reporting.GroupedSource.ClaimVolume => (_claimVolume, "DOS", null, "Rendering_Provider_ID"),
+            Reporting.GroupedSource.ClaimFinancials => (_claimFinancials, "DOS", "Ins_Payer_Id", "Rendering_Provider_ID"),
             _ => (_denials, "Claim_Status_Date", "Ins_Payer_Id", null),
         };
 
@@ -286,6 +289,7 @@ public sealed partial class ReportQueries
             ? g.Source switch
             {
                 Reporting.GroupedSource.ClaimVolume => ReportCatalog.ClaimVolume,
+                Reporting.GroupedSource.ClaimFinancials => "claim-financials",
                 Reporting.GroupedSource.Denials => ReportCatalog.Denials,
                 _ => ReportCatalog.InsuranceVsPatient,
             }
@@ -294,6 +298,7 @@ public sealed partial class ReportQueries
         {
             ReportCatalog.InsuranceAging => ("Billed_Date", _insuranceAr),
             ReportCatalog.ClaimVolume => ("DOS", _claimVolume),
+            "claim-financials" => ("DOS", _claimFinancials),
             ReportCatalog.DaysToBill => ("First_Submission_Date", _daysToBill),
             ReportCatalog.Denials => ("Claim_Status_Date", _denials),
             ReportCatalog.PatientBilling => ("Billed_Date", _patientBilling),

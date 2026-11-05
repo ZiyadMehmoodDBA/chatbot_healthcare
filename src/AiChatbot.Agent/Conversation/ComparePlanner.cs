@@ -27,7 +27,7 @@ public static partial class ComparePlanner
         "'claim volume last quarter vs the same quarter last year'.";
 
     public const string AskReport =
-        "Which report should I compare across periods: payments, A/R aging, claim volume, days to bill, or denials?";
+        "Which report should I compare across periods: payments, A/R aging, claim volume, charges and adjustments, days to bill, or denials?";
 
     // Words that mean change over time on their own, even with no period named (then we ask which period)
     [GeneratedRegex(@"(?<![a-z])(year[- ]over[- ]year|yoy|month[- ]over[- ]month|up or down|trend|trending|growth|grew|dropped|increased|decreased)(?![a-z])", RegexOptions.IgnoreCase)]
@@ -72,6 +72,7 @@ public static partial class ComparePlanner
             "claims" => DaysToBillWords().IsMatch(lower) ? ReportCatalog.DaysToBill
                 : byMonth ? GroupedReports.ClaimVolumeByMonth
                 : byPractice ? GroupedReports.ClaimVolumeByPractice : ReportCatalog.ClaimVolume,
+            "charges" => byMonth ? GroupedReports.FinancialsByMonth : GroupedReports.FinancialsByPractice,
             "denials" => byMonth ? GroupedReports.DenialsByMonth : byPayer ? GroupedReports.DenialsByPayer : ReportCatalog.Denials,
             _ => null,
         };

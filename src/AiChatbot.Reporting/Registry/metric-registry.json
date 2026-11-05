@@ -122,6 +122,22 @@
       "decidedBy": null,
       "decidedOn": null,
       "answer": null
+    },
+    {
+      "id": "DEC-09",
+      "title": "Adjustments and derived metrics",
+      "question": "What does Amount_Adjusted contain, and what are the formulas for net collection rate, days in A/R and denial rate?",
+      "evidence": "FactClaimCount (923,035 rows): charges 394.8M, Amount_Paid 53.8M, Amount_Adjusted 307.9M. Charge = paid + adjusted on 608,685 rows (66%). 672 rows have negative adjustments. Amount_Paid = Insurance_Paid + Patient_Paid on every row. Adjusted looks like contractual plus write-offs but the source does not say. Billing_Status holds Pri-Denied (32,273 rows), Sec-Denied (23,915) and Ter-Denied (126), a richer denial signal than the rejection table (see DEC-03).",
+      "options": [
+        "Adjusted = contractual + write-offs (state formula)",
+        "Split adjustments by type from another source",
+        "Other"
+      ],
+      "recommendation": "Owner states each formula in writing. Until then the bot shows raw sums only and never a rate.",
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     }
   ],
   "metrics": [
@@ -281,6 +297,34 @@
         "DEC-03",
         "DEC-05",
         "DEC-08"
+      ]
+    },
+    {
+      "reportId": "charges-payments-by-practice",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-01",
+        "DEC-05",
+        "DEC-06",
+        "DEC-08",
+        "DEC-09"
+      ]
+    },
+    {
+      "reportId": "charges-payments-by-month",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-01",
+        "DEC-05",
+        "DEC-06",
+        "DEC-08",
+        "DEC-09"
       ]
     }
   ]

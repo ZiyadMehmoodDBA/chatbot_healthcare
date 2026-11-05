@@ -21,6 +21,8 @@ public sealed class RcmReportTools
     public const string ClaimVolumeByMonth = "GetClaimVolumeByMonth";
     public const string DenialsByPayer = "GetDenialsByPayer";
     public const string DenialsByMonth = "GetDenialsByMonth";
+    public const string FinancialsByPractice = "GetChargesPaymentsByPractice";
+    public const string FinancialsByMonth = "GetChargesPaymentsByMonth";
 
     private const string Dates =
         "\"startDate\":{\"type\":\"string\",\"description\":\"First day, YYYY-MM-DD\"}," +
@@ -95,6 +97,19 @@ public sealed class RcmReportTools
                     new(Spec(DaysToBill, "claims", ReportCatalog.DaysToBill,
                         "Average and longest days from date of service to first submission, overall and by payer, for claims first submitted in the period.",
                         Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), ReportCatalog.DaysToBill, "DTB"),
+                ],
+                broker),
+            new ReportModule(
+                "charges",
+                "charges, amounts paid and adjustments by practice and by month",
+                ["charges", "charge", "adjustments", "adjustment", "adjusted", "write off", "write offs", "writeoff", "writeoffs", "billed amount", "gross charges"],
+                [
+                    new(Spec(FinancialsByPractice, "charges", GroupedReports.FinancialsByPractice,
+                        "Charges, amount paid, amount adjusted and withheld by practice for a date-of-service period. Raw sums only.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.FinancialsByPractice, "FIN_PRACTICE"),
+                    new(Spec(FinancialsByMonth, "charges", GroupedReports.FinancialsByMonth,
+                        "Charges, amount paid, amount adjusted and withheld by month of service, oldest first. Use for trends.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.FinancialsByMonth, "FIN_MONTH"),
                 ],
                 broker),
             new ReportModule(

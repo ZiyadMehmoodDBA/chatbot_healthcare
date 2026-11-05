@@ -22,7 +22,7 @@ public static class ComparisonBuilder
     // Grouped reports compare their money and count measures, but not every column of a wide one
     private static string[]? MeasuresFor(string reportId)
         => Measures.TryGetValue(reportId, out var m) ? m
-         : GroupedReports.Find(reportId) is { } g ? g.Measures.Select(x => x.Name).Where(n => n != "recordCount" && n != "lineCount" && n != "insurancePayments" && n != "patientPayments").ToArray()
+         : GroupedReports.Find(reportId) is { } g ? g.Measures.Select(x => x.Name).Where(n => n != "recordCount" && n != "lineCount" && n != "insurancePayments" && n != "patientPayments" && n != "amountWithheld").ToArray()
          : null;
 
     public static ReportResult Build(

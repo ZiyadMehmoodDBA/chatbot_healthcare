@@ -109,7 +109,7 @@ public class DomainTests
     public void Every_tool_declares_a_complete_contract()
     {
         var all = Registry(new FakeExecutor()).Modules.SelectMany(m => m.Tools).ToList();
-        Assert.Equal(12, all.Count);
+        Assert.Equal(14, all.Count);
         Assert.Equal(all.Count, all.Select(t => t.Name).Distinct().Count());
         foreach (var t in all)
         {
@@ -188,7 +188,7 @@ public class DomainTests
     {
         var plan = Plan(question);
         Assert.Equal(PlanKind.Open, plan.Kind);
-        Assert.Equal(12, plan.ToolNames.Count);
+        Assert.Equal(14, plan.ToolNames.Count);
     }
 
     [Theory]

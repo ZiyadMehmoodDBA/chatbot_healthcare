@@ -1,6 +1,6 @@
 namespace AiChatbot.Reporting;
 
-public enum GroupedSource { Payments, ClaimVolume, Denials }
+public enum GroupedSource { Payments, ClaimVolume, Denials, ClaimFinancials }
 
 public sealed record GroupDef(string Name, string Label, string Sql);
 
@@ -33,6 +33,8 @@ public static class GroupedReports
     public const string ClaimVolumeByMonth = "claim-volume-by-month";
     public const string DenialsByPayer = "denials-by-payer";
     public const string DenialsByMonth = "denials-by-month";
+    public const string FinancialsByPractice = "charges-payments-by-practice";
+    public const string FinancialsByMonth = "charges-payments-by-month";
 
     private static readonly GroupDef Practice = new("practiceCode", "Practice", "Practice_Code");
     private static readonly GroupDef Month = new("month", "Month", "CONVERT(char(7), {date}, 120)");
@@ -51,6 +53,17 @@ public static class GroupedReports
         new("claimCount", "Unique claims", ColumnType.Integer, "COUNT(DISTINCT Claim_No)"),
         new("lineCount", "Claim lines", ColumnType.Integer, "COUNT_BIG(*)"),
         new("charges", "Charges", ColumnType.Money, "COALESCE(SUM(CAST(Charge_Amount AS decimal(19,4))), 0)"),
+    ];
+
+    // Raw sums from the claim fact. No ratio is computed here: net collection rate and similar need the owner's
+    // formula and the meaning of Amount_Adjusted (DEC-09).
+    private static readonly MeasureDef[] FinancialMeasures =
+    [
+        new("claimCount", "Unique claims", ColumnType.Integer, "COUNT(DISTINCT Claim_No)"),
+        new("charges", "Charges", ColumnType.Money, "COALESCE(SUM(CAST(Charge_Amount AS decimal(19,4))), 0)"),
+        new("amountPaid", "Amount paid", ColumnType.Money, "COALESCE(SUM(CAST(Amount_Paid AS decimal(19,4))), 0)"),
+        new("amountAdjusted", "Amount adjusted", ColumnType.Money, "COALESCE(SUM(CAST(Amount_Adjusted AS decimal(19,4))), 0)"),
+        new("amountWithheld", "Amount withheld", ColumnType.Money, "COALESCE(SUM(CAST(Withheld_Amount AS decimal(19,4))), 0)"),
     ];
 
     private static readonly MeasureDef[] DenialMeasures =
@@ -78,6 +91,13 @@ public static class GroupedReports
         new(ClaimVolumeByMonth, "Claim volume by month",
             "Unique claims, claim lines and charges by month of service, oldest first.",
             GroupedSource.ClaimVolume, [Month], ClaimMeasures, "CONVERT(char(7), {date}, 120)", true, "claims"),
+        new(FinancialsByPractice, "Charges, payments and adjustments by practice",
+            "Charges, amount paid, amount adjusted and amount withheld on claims with a date of service in the period, by practice.",
+            GroupedSource.ClaimFinancials, [Practice], FinancialMeasures,
+            "COALESCE(SUM(CAST(Charge_Amount AS decimal(19,4))), 0) DESC, Practice_Code", false, "financials"),
+        new(FinancialsByMonth, "Charges, payments and adjustments by month",
+            "Charges, amount paid, amount adjusted and amount withheld by month of service, oldest first.",
+            GroupedSource.ClaimFinancials, [Month], FinancialMeasures, "CONVERT(char(7), {date}, 120)", true, "financials"),
         new(DenialsByPayer, "Denials and rejections by payer",
             "Claims with a claim-status entry in the period, by payer and status. Counts claims, never dollars.",
             GroupedSource.Denials,
@@ -105,6 +125,7 @@ public static class GroupedReports
             {
                 GroupedSource.Payments => ["practiceCodes", "payerId", "providerId", "topN"],
                 GroupedSource.ClaimVolume => ["practiceCodes", "providerId", "topN"],
+                GroupedSource.ClaimFinancials => ["practiceCodes", "payerId", "providerId", "topN"],
                 _ => ["practiceCodes", "payerId", "topN"],
             },
             Columns(s),

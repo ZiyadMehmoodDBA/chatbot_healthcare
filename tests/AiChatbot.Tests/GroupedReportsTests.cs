@@ -99,3 +99,52 @@ public class GroupedModelValuesTests
         Assert.Equal("9001 / Rejected", v["DENIAL_PAYER_FIRST_GROUP"]);
     }
 }
+
+public class FinancialReportsTests
+{
+    private sealed class Exec(params object?[][] rows) : IReportExecutor
+    {
+        public List<ReportQuery> Queries { get; } = [];
+        public Task<IReadOnlyList<object?[]>> ExecuteAsync(ReportQuery q, CancellationToken ct)
+        {
+            Queries.Add(q);
+            return Task.FromResult<IReadOnlyList<object?[]>>(q.Sql.StartsWith("SELECT MAX(", StringComparison.Ordinal)
+                ? [[new DateTime(2026, 6, 5)]] : rows);
+        }
+    }
+    private sealed class NoAudit : IReportAudit { public void Record(ReportAuditEntry e) { } }
+
+    private static readonly Actor Leader = new("u", Roles.Executive, [10]);
+    private static readonly ReportRequest Jan = new(StartDate: new(2026, 1, 1), EndDate: new(2026, 1, 31));
+
+    [Fact]
+    public async Task Charges_report_returns_raw_sums_typed_and_reads_the_financials_view()
+    {
+        var e = new Exec(["10", 7L, 1000.50m, 200m, 700m, 5m]);
+        var b = new ReportBroker(e, new NoAudit(), new ReportServiceOptions(), () => new DateTime(2026, 2, 15));
+
+        var r = await b.RunAsync(Leader, GroupedReports.FinancialsByPractice, Jan, "run", "c");
+
+        Assert.Contains("reporting.vw_Rpt_ClaimFinancials", e.Queries[0].Sql);
+        Assert.Contains("Practice_Code IN (@p0)", e.Queries[0].Sql);
+        Assert.Equal(1000.50m, r.Rows[0][2]);
+        Assert.Equal(7L, r.Rows[0][1]);
+        Assert.Equal("Draft", r.Evidence.ApprovalStatus);
+        Assert.Contains(r.Evidence.Caveats, c => c.Contains("DEC-09"));
+    }
+
+    [Fact]
+    public void No_rate_or_derived_column_is_offered_while_the_formulas_are_undecided()
+    {
+        foreach (var id in new[] { GroupedReports.FinancialsByPractice, GroupedReports.FinancialsByMonth })
+            Assert.DoesNotContain(ReportCatalog.Find(id)!.Columns, c =>
+                c.Name.Contains("rate", StringComparison.OrdinalIgnoreCase) || c.Name.Contains("pct", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void The_registry_keeps_charges_reports_draft_until_dec_09_is_signed()
+    {
+        Assert.Equal("Draft", MetricRegistry.Default.StatusFor(GroupedReports.FinancialsByMonth));
+        Assert.Contains(MetricRegistry.Default.Decisions, d => d.Id == "DEC-09" && d.Status == "Open");
+    }
+}

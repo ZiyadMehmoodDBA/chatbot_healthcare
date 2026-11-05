@@ -236,7 +236,7 @@ public class RcmChatTests
         await Run(agent, Guid.NewGuid(), "hello", new ChatTurn(Manager, "c"));
 
         var names = client.LastOptions!.Tools!.Select(t => t.Name).Order().ToArray();
-        Assert.Equal(["GetClaimVolume", "GetClaimVolumeByMonth", "GetClaimVolumeByPractice", "GetDaysToBill", "GetDenialAnalysis", "GetDenialsByMonth", "GetDenialsByPayer", "GetInsuranceArAging", "GetInsuranceVsPatientPayments", "GetPaymentsByMonth", "GetPaymentsByPayer", "GetPaymentsByPractice"], names);
+        Assert.Equal(["GetChargesPaymentsByMonth", "GetChargesPaymentsByPractice", "GetClaimVolume", "GetClaimVolumeByMonth", "GetClaimVolumeByPractice", "GetDaysToBill", "GetDenialAnalysis", "GetDenialsByMonth", "GetDenialsByPayer", "GetInsuranceArAging", "GetInsuranceVsPatientPayments", "GetPaymentsByMonth", "GetPaymentsByPayer", "GetPaymentsByPractice"], names);
         // The patient lookup is never a model tool
         Assert.DoesNotContain(names, n => n.Contains("Patient", StringComparison.Ordinal) && n != "GetInsuranceVsPatientPayments");
         Assert.Contains("Today is 2026-10-29", client.Rounds[0][0].Text);
