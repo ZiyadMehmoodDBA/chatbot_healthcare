@@ -53,8 +53,10 @@ public sealed class UsageMeter(UsageOptions? options = null, Func<DateTime>? clo
         lock (_gate)
         {
             if (OverBudget(userId)) return false;
-            var today = DateOnly.FromDateTime(_now());
             var d = Current(userId);
+            // The round's own estimate must fit in what is left, not only the usage so far
+            if (_o.DailyTokenBudgetPerUser > 0 && d.In + d.Out + d.Reserved + Math.Max(0, estimatedTokens) > _o.DailyTokenBudgetPerUser)
+                return false;
             _days[userId] = d with { Rounds = d.Rounds + 1, Reserved = d.Reserved + Math.Max(0, estimatedTokens) };
             return true;
         }

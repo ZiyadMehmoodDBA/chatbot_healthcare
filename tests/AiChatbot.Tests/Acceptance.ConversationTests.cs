@@ -269,9 +269,10 @@ public partial class ConversationTests
     [Fact]
     public async Task AC12_a_used_up_budget_stops_model_answers_but_not_code_answers()
     {
-        var usage = new UsageMeter(new UsageOptions { DailyTokenBudgetPerUser = 1000 });
+        // Budget has to be larger than one round's estimate (sent text + tool list + max reply), or nothing is admitted
+        var usage = new UsageMeter(new UsageOptions { DailyTokenBudgetPerUser = 10_000, MaxOutputTokensPerRound = 200 });
         var rig = BuildFull(new InMemorySessionMemory(), usage, ProviderKind.Local,
-            Call(RcmReportTools.PaymentsByPayer, May), TextWithUsage("{PAYER_TOP_NAME}", 900, 300), Text("should not be asked"));
+            Call(RcmReportTools.PaymentsByPayer, May), TextWithUsage("{PAYER_TOP_NAME}", 9000, 3000), Text("should not be asked"));
         await rig.Say("show payments by payer for last month");
         var rounds = rig.Client.Rounds.Count;
 
@@ -444,7 +445,7 @@ public class UsageReservationTests
         var meter = new UsageMeter(new UsageOptions { DailyTokenBudgetPerUser = 1000 });
         var granted = 0;
         Parallel.For(0, 40, _ => { if (meter.TryReserveRound("u", 300)) Interlocked.Increment(ref granted); });
-        Assert.Equal(4, granted); // 300 x 4 passes 1000 on the fourth; the next is refused
+        Assert.Equal(3, granted); // the 4th (900 + 300) would pass 1000, so it is refused
     }
 
     [Fact]
@@ -458,5 +459,33 @@ public class UsageReservationTests
         meter.TryReserveRound("b", 800);
         meter.Settle("b", 800, 0, 0);
         Assert.Equal(800, meter.Get("b").InputTokens);
+    }
+}
+
+public class RoundEstimateTests
+{
+    [Fact]
+    public void Tool_calls_results_and_declarations_are_counted_in_the_estimate()
+    {
+        var plain = new List<ChatMessage> { new(ChatRole.User, "hi") };
+        var big = new string('x', 4000);
+        var withTool = new List<ChatMessage>(plain)
+        {
+            new(ChatRole.Assistant, [new FunctionCallContent("c1", "tool", new Dictionary<string, object?> { ["a"] = big })]),
+            new(ChatRole.Tool, [new FunctionResultContent("c1", new Dictionary<string, string> { ["v"] = big })]),
+        };
+
+        var baseline = ChatAgent.EstimateRoundTokens(plain, null, 100);
+        var with = ChatAgent.EstimateRoundTokens(withTool, null, 100);
+
+        Assert.True(with - baseline >= 2000, $"{baseline} -> {with}"); // two 4000-char payloads ~ 2000 tokens
+    }
+
+    [Fact]
+    public void A_round_that_does_not_fit_in_the_remaining_budget_is_refused()
+    {
+        var meter = new UsageMeter(new UsageOptions { DailyTokenBudgetPerUser = 1000 });
+        Assert.False(meter.TryReserveRound("u", 1500));
+        Assert.True(meter.TryReserveRound("u", 900));
     }
 }

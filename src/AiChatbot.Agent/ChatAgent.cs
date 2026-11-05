@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Diagnostics;
@@ -228,7 +229,7 @@ public sealed class ChatAgent(
             // tools cannot spend past the limit, and a cancelled or failed round still counts. RCM text is never
             // streamed live, so stopping here leaves nothing half shown.
             long reserved = 0;
-            if (rcmMode && usage is not null && !usage.TryReserveRound(turn!.Actor!.UserId, reserved = EstimateRoundTokens(messages, usage.Options.MaxOutputTokensPerRound)))
+            if (rcmMode && usage is not null && !usage.TryReserveRound(turn!.Actor!.UserId, reserved = EstimateRoundTokens(messages, options, usage.Options.MaxOutputTokensPerRound)))
             {
                 turn.Trace.Add(new TraceStep("budget", "model", "stopped", Detail: $"round={round + 1}"));
                 finalText = UsageMeter.BudgetReply;
@@ -534,8 +535,24 @@ public sealed class ChatAgent(
     }
 
     // Rough size of one round: about 4 characters a token for what is sent, plus the most the reply may use
-    private static long EstimateRoundTokens(IEnumerable<ChatMessage> messages, int maxOutput)
-        => messages.Sum(m => (long)(m.Text?.Length ?? 0)) / 4 + (maxOutput > 0 ? maxOutput : 2048);
+    // Counts every kind of content sent: text, tool-call arguments, tool results and the tool declarations.
+    internal static long EstimateRoundTokens(IEnumerable<ChatMessage> messages, ChatOptions? options, int maxOutput)
+    {
+        long chars = 0;
+        foreach (var m in messages)
+            foreach (var c in m.Contents)
+                chars += c switch
+                {
+                    TextContent t => t.Text?.Length ?? 0,
+                    FunctionCallContent f => f.Name.Length + (f.Arguments is null ? 0 : JsonSerializer.Serialize(f.Arguments).Length),
+                    FunctionResultContent r => r.Result is null ? 0 : JsonSerializer.Serialize(r.Result).Length,
+                    _ => 0,
+                };
+        foreach (var tool in options?.Tools ?? [])
+            chars += tool.Name.Length + tool.Description.Length
+                + (tool is AIFunctionDeclaration d ? d.JsonSchema.GetRawText().Length : 0);
+        return chars / 4 + (maxOutput > 0 ? maxOutput : 2048);
+    }
 
     private static bool IsFreeText(string key) => key.EndsWith("_TOP_NAME", StringComparison.Ordinal) || key.EndsWith("_TOP_PROVIDER", StringComparison.Ordinal);
 
