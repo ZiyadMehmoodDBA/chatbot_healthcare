@@ -407,3 +407,19 @@ public class UsageMeterGuardTests
         Assert.Equal(5, meter.Get("u").ModelRounds);
     }
 }
+
+public partial class ConversationTests
+{
+    [Theory]
+    [InlineData(ProviderKind.Local)]
+    [InlineData(ProviderKind.External)]
+    public async Task AC09_payer_names_never_reach_any_model_but_still_reach_the_user(ProviderKind kind)
+    {
+        var rig = Build(kind, Call(RcmReportTools.PaymentsByPayer, May), Text("Top payer {PAYER_TOP_NAME}."));
+
+        var (text, _) = await rig.Say("show payments by payer for last month");
+
+        Assert.DoesNotContain("Acme Health", string.Join("\n", ModelText(rig)));
+        Assert.Contains("Acme Health", text);
+    }
+}

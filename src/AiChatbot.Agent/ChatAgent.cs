@@ -511,14 +511,24 @@ public sealed class ChatAgent(
         foreach (var (key, value) in result.Values) values[key] = value;
         if (safety.Policy.Allows(kind, result.Class))
         {
-            shown.AddRange(result.Values.Values);
-            return new(result.Values);
+            // Free database text (payer and provider names) never goes to the model, even when figures may: it is
+            // sent as a placeholder and the server fills it in. Same rule as grouped reports.
+            var visible = new Dictionary<string, string>();
+            foreach (var (key, value) in result.Values)
+            {
+                if (IsFreeText(key)) { visible[key] = "{" + key + "}"; continue; }
+                visible[key] = value;
+                shown.Add(value);
+            }
+            return visible;
         }
 
         var hidden = result.Values.Keys.ToDictionary(k => k, k => "{" + k + "}");
         hidden["note"] = "Values are inserted by the server. Write each placeholder exactly, with no digits.";
         return hidden;
     }
+
+    private static bool IsFreeText(string key) => key.EndsWith("_TOP_NAME", StringComparison.Ordinal) || key.EndsWith("_TOP_PROVIDER", StringComparison.Ordinal);
 
     // External text is checked before the user sees it: a number the model was never shown means it made one up,
     // so the answer is replaced by a server-built listing of the real tool values.
