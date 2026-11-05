@@ -300,6 +300,31 @@ public class ConversationTests
     }
 
     [Fact]
+    public async Task A_failed_report_call_does_not_let_the_models_own_figures_through()
+    {
+        var rig = Build(ProviderKind.Local, Call(RcmReportTools.Denials, May), Text("Denials were 1,234 this period, mostly Service Not Covered."));
+        rig.Exec.Fail = true;
+
+        var (text, _) = await rig.Say("who denied the most claims in 2025 and why?");
+
+        Assert.DoesNotContain("1,234", text);
+        Assert.Contains("won't guess", text);
+    }
+
+    [Theory]
+    [InlineData("About two million dollars is outstanding.")]
+    [InlineData("Roughly 1,234 claims.")]
+    [InlineData("There were ١٢٣ claims.")] // Arabic-Indic digits
+    public async Task An_open_question_answered_without_a_report_cannot_state_a_quantity(string modelText)
+    {
+        var rig = Build(ProviderKind.Local, Text(modelText));
+
+        var (text, _) = await rig.Say("tell me something useful");
+
+        Assert.Contains("won't guess", text);
+    }
+
+    [Fact]
     public async Task A_model_that_runs_the_tool_still_answers_normally()
     {
         var rig = WithTwoReports();

@@ -142,6 +142,22 @@ public class ResponseFinalizerTests
     public void Invented_numbers_are_numbers_not_among_the_shown_values(string text, bool invented)
         => Assert.Equal(invented, ResponseFinalizer.HasInventedNumbers(text, ["7"]));
 
+    [Theory]
+    [InlineData("57,611,882.42 received", false)]      // separators ignored when comparing
+    [InlineData("57,611,882 received", true)]          // a different figure, not a prefix of the shown one
+    [InlineData("57,611 received", true)]              // pieces of a shown number are not the number
+    [InlineData("٥٧٦١١٨٨٢.٤٢ received", false)] // same figure in Arabic-Indic digits
+    public void Numbers_are_compared_whole_with_separators_and_digit_scripts_normalised(string text, bool invented)
+        => Assert.Equal(invented, ResponseFinalizer.HasInventedNumbers(text, ["$57,611,882.42"]));
+
+    [Theory]
+    [InlineData("There are 12 claims", true)]
+    [InlineData("about two million", true)]
+    [InlineData("١٢ claims", true)]
+    [InlineData("Which date range do you mean?", false)]
+    public void A_number_claim_is_digits_in_any_script_or_a_number_word(string text, bool claim)
+        => Assert.Equal(claim, ResponseFinalizer.ContainsNumberClaim(text));
+
     [Fact]
     public void Stream_never_splits_a_placeholder_and_flushes_the_tail()
     {

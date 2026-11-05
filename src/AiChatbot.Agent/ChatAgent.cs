@@ -217,10 +217,12 @@ public sealed class ChatAgent(
         }
 
         // The plan expects a report, or the model gave numbers it never got from a tool: its text is not shown
-        if (rcmMode && turn!.ToolCalls == 0
-            && (plan!.Kind is PlanKind.Single or PlanKind.Multi || ResponseFinalizer.HasInventedNumbers(finalText, shown)))
+        // Decided on results, not attempts: a failed tool call leaves no values either. With no values the model has
+        // nothing it may state, so a data question gets the fixed reply and any other text must hold no quantity.
+        if (rcmMode && turn!.Reports.Count == 0 && values.Count == 0
+            && (plan!.Kind is PlanKind.Single or PlanKind.Multi || ResponseFinalizer.ContainsNumberClaim(finalText)))
         {
-            turn.Trace.Add(new TraceStep("guard", "no-report", "replaced", Detail: "model answered without running a report"));
+            turn.Trace.Add(new TraceStep("guard", "no-report", "replaced", Detail: "no report produced values"));
             finalText = NoReportReply;
         }
 
