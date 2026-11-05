@@ -287,8 +287,8 @@ public class ReportingTests
     [Fact]
     public void Catalog_has_fifteen_reports_with_unique_ids_and_caveats()
     {
-        Assert.Equal(15, ReportCatalog.All.Count);
-        Assert.Equal(15, ReportCatalog.All.Select(r => r.Id).Distinct().Count());
+        Assert.Equal(20, ReportCatalog.All.Count);
+        Assert.Equal(20, ReportCatalog.All.Select(r => r.Id).Distinct().Count());
         Assert.All(ReportCatalog.All, r => Assert.NotEmpty(r.Caveats));
     }
 
@@ -297,7 +297,7 @@ public class ReportingTests
     {
         var (b, _, _) = Make();
         // The patient-level report is chat-only and never listed for the report API
-        Assert.Equal(14, b.CatalogFor(Manager).Count);
+        Assert.Equal(19, b.CatalogFor(Manager).Count);
         Assert.DoesNotContain(b.CatalogFor(Manager), r => r.PatientLevel);
         Assert.Empty(b.CatalogFor(new Actor("u", "Intern", [1])));
     }

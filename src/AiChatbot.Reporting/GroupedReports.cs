@@ -1,6 +1,6 @@
 namespace AiChatbot.Reporting;
 
-public enum GroupedSource { Payments, ClaimVolume, Denials, ClaimFinancials }
+public enum GroupedSource { Payments, ClaimVolume, Denials, ClaimFinancials, Submissions, Resubmissions, PaymentRemarks }
 
 public sealed record GroupDef(string Name, string Label, string Sql);
 
@@ -19,7 +19,9 @@ public sealed record GroupedSpec(
     string OrderBy,
     // Month and similar groupings read best oldest first
     bool Chronological,
-    string CaveatKey)
+    string CaveatKey,
+    // A column that must hold a value for a row to count (a literal from this file)
+    string? RequiredNotEmpty = null)
 {
     // {date} in a group expression is replaced by the source's date column
     public string DateSqlToken => "{date}";
@@ -33,6 +35,11 @@ public static class GroupedReports
     public const string ClaimVolumeByMonth = "claim-volume-by-month";
     public const string DenialsByPayer = "denials-by-payer";
     public const string DenialsByMonth = "denials-by-month";
+    public const string SubmissionsByType = "submissions-by-type";
+    public const string SubmissionsByMonth = "submissions-by-month";
+    public const string ResubmissionsByPayer = "resubmissions-by-payer";
+    public const string ResubmissionsByMonth = "resubmissions-by-month";
+    public const string RemarksByCode = "payment-remarks-by-code";
     public const string FinancialsByPractice = "charges-payments-by-practice";
     public const string FinancialsByMonth = "charges-payments-by-month";
 
@@ -64,6 +71,26 @@ public static class GroupedReports
         new("amountPaid", "Amount paid", ColumnType.Money, "COALESCE(SUM(CAST(Amount_Paid AS decimal(19,4))), 0)"),
         new("amountAdjusted", "Amount adjusted", ColumnType.Money, "COALESCE(SUM(CAST(Amount_Adjusted AS decimal(19,4))), 0)"),
         new("amountWithheld", "Amount withheld", ColumnType.Money, "COALESCE(SUM(CAST(Withheld_Amount AS decimal(19,4))), 0)"),
+    ];
+
+    private static readonly MeasureDef[] SubmissionMeasures =
+    [
+        new("claimCount", "Unique claims", ColumnType.Integer, "COUNT(DISTINCT Claim_No)"),
+        new("submissionCount", "Submissions", ColumnType.Integer, "COUNT_BIG(*)"),
+    ];
+
+    // RowNumDateOfSubmission numbers each claim's submissions in date order; more than 1 = sent again (DEC-10)
+    private static readonly MeasureDef[] ResubmissionMeasures =
+    [
+        new("claimCount", "Unique claims", ColumnType.Integer, "COUNT(DISTINCT Claim_No)"),
+        new("submissionCount", "Submissions", ColumnType.Integer, "COUNT_BIG(*)"),
+        new("resubmittedClaims", "Claims sent again", ColumnType.Integer, "COUNT(DISTINCT CASE WHEN RowNumDateOfSubmission > 1 THEN Claim_No END)"),
+    ];
+
+    private static readonly MeasureDef[] RemarkMeasures =
+    [
+        new("claimCount", "Unique claims", ColumnType.Integer, "COUNT(DISTINCT Claim_No)"),
+        new("recordCount", "Payment records", ColumnType.Integer, "COUNT_BIG(*)"),
     ];
 
     private static readonly MeasureDef[] DenialMeasures =
@@ -98,6 +125,29 @@ public static class GroupedReports
         new(FinancialsByMonth, "Charges, payments and adjustments by month",
             "Charges, amount paid, amount adjusted and amount withheld by month of service, oldest first.",
             GroupedSource.ClaimFinancials, [Month], FinancialMeasures, "CONVERT(char(7), {date}, 120)", true, "financials"),
+        new(SubmissionsByType, "Claim submissions by type and result",
+            "Claims submitted in the period by submission type (electronic, manual, crossover) and the result recorded, accepted or rejected.",
+            GroupedSource.Submissions,
+            [new("submissionType", "Submission type", "Submission_Type"), new("result", "Result", "COALESCE(NULLIF(Claim_Status, ''), 'No result')")],
+            SubmissionMeasures, "COUNT(DISTINCT Claim_No) DESC, Submission_Type", false, "submissions"),
+        new(SubmissionsByMonth, "Claim submissions by month",
+            "Claims submitted by month and result, oldest first.",
+            GroupedSource.Submissions,
+            [Month, new("result", "Result", "COALESCE(NULLIF(Claim_Status, ''), 'No result')")],
+            SubmissionMeasures, "CONVERT(char(7), {date}, 120), COALESCE(NULLIF(Claim_Status, ''), 'No result')", true, "submissions"),
+        new(ResubmissionsByPayer, "Resubmissions by payer",
+            "Submissions in the period by payer, with how many claims were sent more than once.",
+            GroupedSource.Resubmissions,
+            [new("payerId", "Payer ID", "Ins_Payer_Id"), new("payerName", "Payer", "Ins_Payer_Name")], ResubmissionMeasures,
+            "COUNT(DISTINCT CASE WHEN RowNumDateOfSubmission > 1 THEN Claim_No END) DESC, Ins_Payer_Id", false, "resubmissions"),
+        new(ResubmissionsByMonth, "Resubmissions by month",
+            "Submissions by month, with how many claims were sent more than once, oldest first.",
+            GroupedSource.Resubmissions, [Month], ResubmissionMeasures, "CONVERT(char(7), {date}, 120)", true, "resubmissions"),
+        new(RemarksByCode, "Payment remark codes",
+            "Claims with payment records carrying each remittance remark code, by date of payment. Codes are shown as stored; their meaning is not decoded.",
+            GroupedSource.PaymentRemarks,
+            [new("remarkCodes", "Remark codes", "Combined_Remarks")], RemarkMeasures,
+            "COUNT(DISTINCT Claim_No) DESC, Combined_Remarks", false, "remarks", "Combined_Remarks"),
         new(DenialsByPayer, "Denials and rejections by payer",
             "Claims with a claim-status entry in the period, by payer and status. Counts claims, never dollars.",
             GroupedSource.Denials,
@@ -126,6 +176,7 @@ public static class GroupedReports
                 GroupedSource.Payments => ["practiceCodes", "payerId", "providerId", "topN"],
                 GroupedSource.ClaimVolume => ["practiceCodes", "providerId", "topN"],
                 GroupedSource.ClaimFinancials => ["practiceCodes", "payerId", "providerId", "topN"],
+                GroupedSource.PaymentRemarks or GroupedSource.Submissions or GroupedSource.Resubmissions => ["practiceCodes", "payerId", "topN"],
                 _ => ["practiceCodes", "payerId", "topN"],
             },
             Columns(s),

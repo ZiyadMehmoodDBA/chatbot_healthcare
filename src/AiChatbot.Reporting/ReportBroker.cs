@@ -12,6 +12,9 @@ public sealed class ReportServiceOptions
     public string InsuranceArView { get; set; } = "reporting.vw_Rpt_InsuranceAr";
     public string ClaimVolumeView { get; set; } = "reporting.vw_Rpt_ClaimVolume";
     public string ClaimFinancialsView { get; set; } = "reporting.vw_Rpt_ClaimFinancials";
+    public string SubmissionsView { get; set; } = "reporting.vw_Rpt_Submissions";
+    public string ResubmissionsView { get; set; } = "reporting.vw_Rpt_Resubmissions";
+    public string PaymentRemarksView { get; set; } = "reporting.vw_Rpt_PaymentRemarks";
     public string DaysToBillView { get; set; } = "reporting.vw_Rpt_DaysToBill";
     public string DenialsView { get; set; } = "reporting.vw_Rpt_Denials";
     public string PatientBillingView { get; set; } = "reporting.vw_Rpt_PatientBilling";

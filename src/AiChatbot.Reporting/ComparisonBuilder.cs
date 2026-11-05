@@ -17,12 +17,14 @@ public static class ComparisonBuilder
         [ReportCatalog.Denials] = ["claimCount"],
     };
 
-    public static bool CanCompare(string reportId) => Measures.ContainsKey(reportId) || GroupedReports.Find(reportId) is not null;
+    // Month-grouped reports are not compared: their rows are keyed by month, so the two periods would never line up
+    public static bool CanCompare(string reportId)
+        => Measures.ContainsKey(reportId) || GroupedReports.Find(reportId) is { Chronological: false };
 
     // Grouped reports compare their money and count measures, but not every column of a wide one
     private static string[]? MeasuresFor(string reportId)
         => Measures.TryGetValue(reportId, out var m) ? m
-         : GroupedReports.Find(reportId) is { } g ? g.Measures.Select(x => x.Name).Where(n => n != "recordCount" && n != "lineCount" && n != "insurancePayments" && n != "patientPayments" && n != "amountWithheld").ToArray()
+         : GroupedReports.Find(reportId) is { } g ? g.Measures.Select(x => x.Name).Where(n => n != "recordCount" && n != "lineCount" && n != "insurancePayments" && n != "patientPayments" && n != "amountWithheld" && n != "submissionCount").ToArray()
          : null;
 
     public static ReportResult Build(

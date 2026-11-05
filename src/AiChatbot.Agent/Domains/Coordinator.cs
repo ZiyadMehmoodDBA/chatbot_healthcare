@@ -36,7 +36,7 @@ public static class Coordinator
     private static readonly (string Area, string[] Words)[] NotBuilt =
     [
         ("appeals and denial follow-up work", ["appeal", "appeals"]),
-        ("claim status and submission reports", ["claim status", "claims status", "submission", "resubmission", "clean claim"]),
+        ("claim status and clean-claim reports", ["claim status", "claims status", "clean claim", "first pass"]),
         ("CPT procedure performance", ["cpt", "procedure code"]),
         ("facility and sales representative reports", ["sales rep", "facility performance"]),
         ("claim interest reports", ["interest"]),

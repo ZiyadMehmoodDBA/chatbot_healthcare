@@ -22,6 +22,9 @@ public static partial class ComparePlanner
     [GeneratedRegex(@"(?<![a-z])(days to bill|time to bill|billing lag|billing speed|slow to bill|slowest to bill)(?![a-z])", RegexOptions.IgnoreCase)]
     private static partial Regex DaysToBillWords();
 
+    [GeneratedRegex(@"(?<![a-z])remark(?:s| codes?)?(?![a-z])", RegexOptions.IgnoreCase)]
+    private static partial Regex RemarkWords();
+
     public const string AskPeriod =
         "Which period should I compare? For example: 'payments this month vs last month', 'denials Q1 vs Q2', or " +
         "'claim volume last quarter vs the same quarter last year'.";
@@ -53,27 +56,30 @@ public static partial class ComparePlanner
     {
         if (!IsCompareRequest(text, today)) return null;
         if (plan.Kind == PlanKind.Unsupported) return null; // the plan's own reply says why
-        if (plan.Kind != PlanKind.Single)
+        if (plan.Kind == PlanKind.Multi && RemarkWords().IsMatch(text) && plan.Modules.Any(m => m.Domain == "submissions"))
+            plan = plan with { Modules = plan.Modules.Where(m => m.Domain == "submissions").ToList() };
+        if (plan.Kind != PlanKind.Single && plan.Modules.Count != 1)
             return new ReplyDecision(AskReport, TurnKind.Clarification, "compare: report not clear");
         var comparison = Periods.Compare(text, today);
         if (comparison is null)
             return new ReplyDecision(AskPeriod, TurnKind.Clarification, "compare: period missing");
 
         var lower = text.ToLowerInvariant();
-        var byMonth = Coordinator.HasWord(lower, "by month") || Coordinator.HasWord(lower, "monthly") || Coordinator.HasWord(lower, "each month");
+        // A comparison is between two periods, so a "by month" breakdown is dropped: each period would be keyed by its own months
         var byPractice = Coordinator.HasWord(lower, "by practice") || Coordinator.HasWord(lower, "practice") || Coordinator.HasWord(lower, "practices");
         var byPayer = Coordinator.HasWord(lower, "by payer") || Coordinator.HasWord(lower, "payer") || Coordinator.HasWord(lower, "payers");
+        var remarks = Coordinator.HasWord(lower, "remark") || Coordinator.HasWord(lower, "remarks") || Coordinator.HasWord(lower, "remark codes");
+        var resub = Coordinator.HasWord(lower, "resubmission") || Coordinator.HasWord(lower, "resubmissions") || Coordinator.HasWord(lower, "resubmitted");
         var reportId = plan.Modules[0].Domain switch
         {
-            "payments" => byMonth ? GroupedReports.PaymentsByMonth
-                : byPractice ? GroupedReports.PaymentsByPractice
+            "payments" => byPractice ? GroupedReports.PaymentsByPractice
                 : byPayer ? ReportCatalog.PaymentsByPayer : ReportCatalog.InsuranceVsPatient,
             "accounts receivable" => ReportCatalog.InsuranceAging,
             "claims" => DaysToBillWords().IsMatch(lower) ? ReportCatalog.DaysToBill
-                : byMonth ? GroupedReports.ClaimVolumeByMonth
                 : byPractice ? GroupedReports.ClaimVolumeByPractice : ReportCatalog.ClaimVolume,
-            "charges" => byMonth ? GroupedReports.FinancialsByMonth : GroupedReports.FinancialsByPractice,
-            "denials" => byMonth ? GroupedReports.DenialsByMonth : byPayer ? GroupedReports.DenialsByPayer : ReportCatalog.Denials,
+            "submissions" => remarks ? GroupedReports.RemarksByCode : resub ? GroupedReports.ResubmissionsByPayer : GroupedReports.SubmissionsByType,
+            "charges" => GroupedReports.FinancialsByPractice,
+            "denials" => byPayer ? GroupedReports.DenialsByPayer : ReportCatalog.Denials,
             _ => null,
         };
         if (reportId is null || !ComparisonBuilder.CanCompare(reportId))

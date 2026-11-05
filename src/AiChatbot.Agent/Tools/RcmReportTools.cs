@@ -21,6 +21,11 @@ public sealed class RcmReportTools
     public const string ClaimVolumeByMonth = "GetClaimVolumeByMonth";
     public const string DenialsByPayer = "GetDenialsByPayer";
     public const string DenialsByMonth = "GetDenialsByMonth";
+    public const string SubmissionsByType = "GetSubmissionsByType";
+    public const string SubmissionsByMonth = "GetSubmissionsByMonth";
+    public const string ResubmissionsByPayer = "GetResubmissionsByPayer";
+    public const string ResubmissionsByMonth = "GetResubmissionsByMonth";
+    public const string RemarksByCode = "GetPaymentRemarkCodes";
     public const string FinancialsByPractice = "GetChargesPaymentsByPractice";
     public const string FinancialsByMonth = "GetChargesPaymentsByMonth";
 
@@ -110,6 +115,28 @@ public sealed class RcmReportTools
                     new(Spec(FinancialsByMonth, "charges", GroupedReports.FinancialsByMonth,
                         "Charges, amount paid, amount adjusted and withheld by month of service, oldest first. Use for trends.",
                         Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.FinancialsByMonth, "FIN_MONTH"),
+                ],
+                broker),
+            new ReportModule(
+                "submissions",
+                "claim submissions, resubmissions and payment remark codes",
+                ["submission", "submissions", "resubmission", "resubmissions", "resubmitted", "resubmit", "remark code", "remark codes", "remarks", "remark"],
+                [
+                    new(Spec(SubmissionsByType, "submissions", GroupedReports.SubmissionsByType,
+                        "Claims submitted in a period by submission type and result (accepted or rejected).",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.SubmissionsByType, "SUB_TYPE"),
+                    new(Spec(SubmissionsByMonth, "submissions", GroupedReports.SubmissionsByMonth,
+                        "Claims submitted by month and result, oldest first. Use for trends.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.SubmissionsByMonth, "SUB_MONTH"),
+                    new(Spec(ResubmissionsByPayer, "submissions", GroupedReports.ResubmissionsByPayer,
+                        "Submissions by payer in a period with how many claims were sent again.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.ResubmissionsByPayer, "RESUB_PAYER"),
+                    new(Spec(ResubmissionsByMonth, "submissions", GroupedReports.ResubmissionsByMonth,
+                        "Submissions by month with how many claims were sent again, oldest first.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.ResubmissionsByMonth, "RESUB_MONTH"),
+                    new(Spec(RemarksByCode, "submissions", GroupedReports.RemarksByCode,
+                        "Claims by remittance remark code in a date-of-payment period. Codes are shown as stored, not decoded.",
+                        Dates + "," + TopN, ["startDate", "endDate"], options.MaxTopN), GroupedReports.RemarksByCode, "REMARK"),
                 ],
                 broker),
             new ReportModule(

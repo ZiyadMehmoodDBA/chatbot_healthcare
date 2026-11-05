@@ -138,6 +138,22 @@
       "decidedBy": null,
       "decidedOn": null,
       "answer": null
+    },
+    {
+      "id": "DEC-10",
+      "title": "Resubmission and clean-claim definitions; remark codes",
+      "question": "What counts as a resubmission and as a clean (first-pass) claim, and are payment remark codes an acceptable denial source?",
+      "evidence": "FactClaimResubmission (dev practices 564,736 rows): RowNumDateOfSubmission above 1 on 67,079 rows, maximum 11, all Electronic. Submission history: 572k accepted, 20k rejected, 54 blank (accepted means acknowledged, not paid). MAX_GlobalKPIClaimPaymentDenial holds remittance remark codes (N782 on 48k rows, N620, N220, MA13 ...); 729k of 873k rows have none. Claim interest has no rows for the dev practices.",
+      "options": [
+        "Resubmission = any submission after the first; clean claim = accepted on the first submission and paid without adjustment codes",
+        "Different definition (state it)",
+        "Use remark codes as the denial source (answers DEC-03)"
+      ],
+      "recommendation": "Owner states both definitions in writing; consider remark codes as the remittance source for true denials.",
+      "status": "Open",
+      "decidedBy": null,
+      "decidedOn": null,
+      "answer": null
     }
   ],
   "metrics": [
@@ -325,6 +341,67 @@
         "DEC-06",
         "DEC-08",
         "DEC-09"
+      ]
+    },
+    {
+      "reportId": "submissions-by-type",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-08",
+        "DEC-10"
+      ]
+    },
+    {
+      "reportId": "submissions-by-month",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-08",
+        "DEC-10"
+      ]
+    },
+    {
+      "reportId": "resubmissions-by-payer",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-08",
+        "DEC-10"
+      ]
+    },
+    {
+      "reportId": "resubmissions-by-month",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-05",
+        "DEC-08",
+        "DEC-10"
+      ]
+    },
+    {
+      "reportId": "payment-remarks-by-code",
+      "metricVersion": "0.1-draft",
+      "approvalStatus": "Draft",
+      "approvedBy": null,
+      "approvedOn": null,
+      "dependsOn": [
+        "DEC-03",
+        "DEC-05",
+        "DEC-08",
+        "DEC-10"
       ]
     }
   ]

@@ -109,7 +109,7 @@ public class DomainTests
     public void Every_tool_declares_a_complete_contract()
     {
         var all = Registry(new FakeExecutor()).Modules.SelectMany(m => m.Tools).ToList();
-        Assert.Equal(14, all.Count);
+        Assert.Equal(19, all.Count);
         Assert.Equal(all.Count, all.Select(t => t.Name).Distinct().Count());
         foreach (var t in all)
         {
@@ -188,12 +188,12 @@ public class DomainTests
     {
         var plan = Plan(question);
         Assert.Equal(PlanKind.Open, plan.Kind);
-        Assert.Equal(14, plan.ToolNames.Count);
+        Assert.Equal(19, plan.ToolNames.Count);
     }
 
     [Theory]
     [InlineData("show CPT performance", "CPT procedure performance")]
-    [InlineData("claim submission performance", "claim status and submission reports")]
+    [InlineData("what is our clean claim rate", "claim status and clean-claim reports")]
     [InlineData("how do we handle appeals", "appeals and denial follow-up work")]
     public void Areas_that_are_not_built_get_an_honest_reply_not_a_guess(string question, string area)
     {

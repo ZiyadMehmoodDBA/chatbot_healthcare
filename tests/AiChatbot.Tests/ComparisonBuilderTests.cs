@@ -93,3 +93,23 @@ public class ComparisonBuilderTests
         Assert.False(ComparisonBuilder.CanCompare(ReportCatalog.PatientBilling));
     }
 }
+
+public class ComparisonRoutingTests
+{
+    [Theory]
+    [InlineData("compare payment remark codes April 2026 vs May 2026", "payment-remarks-by-code")]
+    [InlineData("compare resubmissions April 2026 vs May 2026", "resubmissions-by-payer")]
+    [InlineData("compare submissions by month April 2026 vs May 2026", "submissions-by-type")]
+    [InlineData("compare charges by month April 2026 vs May 2026", "charges-payments-by-practice")]
+    public void A_comparison_picks_a_report_whose_rows_line_up_across_periods(string question, string expected)
+    {
+        var rm = new AiChatbot.Reporting.Actor("u", AiChatbot.Reporting.Roles.RcmManager, [10]);
+        var broker = new AiChatbot.Reporting.ReportBroker(null!, null!, new AiChatbot.Reporting.ReportServiceOptions());
+        var modules = new AiChatbot.Agent.Tools.RcmReportTools(broker).Modules;
+        var plan = AiChatbot.Agent.Domains.Coordinator.Plan(question, rm, modules);
+
+        var d = AiChatbot.Agent.Conversation.ComparePlanner.Plan(question, plan, new DateOnly(2026, 10, 29), 100);
+
+        Assert.Equal(expected, Assert.IsType<AiChatbot.Agent.Conversation.CompareDecision>(d).ReportId);
+    }
+}

@@ -18,6 +18,8 @@ public static class ReportCatalog
     public const string ServiceDate = "dos";
     public const string Submitted = "submitted";
     public const string StatusDate = "status";
+    public const string SubmissionDate = "submission";
+    public const string PaymentDate = "dop";
     public const string Current = "current";
 
     private static readonly string[] AllRoles = [Roles.BillingStaff, Roles.RcmManager, Roles.Analyst, Roles.Executive];
@@ -218,6 +220,34 @@ public static class ReportCatalog
         "The source holds one row per claim line; unique claims are counted by Claim_No. A claim can span more than one month of service.",
     ];
 
+    // Checked against MedcareDW_Dev on 2026-11-05 (aggregates, dev practices): submission history 592k rows from 2024-02 to
+    // 2026-06-05, types Electronic / Manually submitted / Crossover, results accepted (572k) or rejected (20k), 54 blank.
+    private static readonly string[] SubmissionCaveats =
+    [
+        "Draft definition: not yet approved by the RCM business owner.",
+        "Results are the clearinghouse or payer acknowledgement at submission (accepted or rejected). Accepted does not mean paid.",
+        "A claim sent more than once has one row per submission, so submissions can exceed unique claims. A claim with more than one result appears under each, so unique claims do not add up across rows.",
+        "OPEN DECISION DEC-10: the definition of a resubmission and of a clean claim is not signed, so no first-pass or clean-claim rate is shown.",
+    ];
+
+    // FactClaimResubmission: 564,736 rows for the dev practices; RowNumDateOfSubmission numbers each claim's submissions and
+    // is above 1 on 67,079 rows (up to 11). Submission_Type is always Electronic.
+    private static readonly string[] ResubmissionCaveats =
+    [
+        "Draft definition: not yet approved by the RCM business owner.",
+        "A claim counts as sent again when it has more than one submission. The source numbers each claim's submissions; the owner has not confirmed that this is the resubmission definition (DEC-10).",
+        "Every row in the source is an electronic submission; paper and manual resubmissions are not in this table.",
+    ];
+
+    // MAX_GlobalKPIClaimPaymentDenial: remittance remark codes (e.g. N782, MA13) on payment records. 729k of 873k dev rows have none.
+    private static readonly string[] RemarkCaveats =
+    [
+        "Draft definition: not yet approved by the RCM business owner.",
+        "These are remittance remark codes as stored, sometimes several joined in one value. This bot does not decode them; use the payer or industry code list for their meaning.",
+        "Only payment records that carry a remark code are counted. A remark code is not by itself a denial.",
+        "This is the first remittance-level source seen in the warehouse and may help decide DEC-03 (what counts as a denial).",
+    ];
+
     public static readonly IReadOnlyList<ReportDefinition> All =
     [
         .. BaseReports,
@@ -228,6 +258,9 @@ public static class ReportCatalog
                 ["claims"] = BaseReports.First(r => r.Id == ClaimVolume).Caveats,
                 ["denials"] = BaseReports.First(r => r.Id == Denials).Caveats,
                 ["financials"] = FinancialCaveats,
+                ["submissions"] = SubmissionCaveats,
+                ["resubmissions"] = ResubmissionCaveats,
+                ["remarks"] = RemarkCaveats,
             },
             Owner, AllRoles,
             new Dictionary<GroupedSource, (string Source, string Basis)>
@@ -236,6 +269,9 @@ public static class ReportCatalog
                 [GroupedSource.ClaimVolume] = ("dbo.FactClaimCount via reporting view", ServiceDate),
                 [GroupedSource.Denials] = ("dbo.FactPayerRejectionReason via reporting view", StatusDate),
                 [GroupedSource.ClaimFinancials] = ("dbo.FactClaimCount via reporting view", ServiceDate),
+                [GroupedSource.Submissions] = ("dbo.FactGlobalKPIClaimSubmissionsHistory via reporting view", SubmissionDate),
+                [GroupedSource.Resubmissions] = ("dbo.FactClaimResubmission via reporting view", SubmissionDate),
+                [GroupedSource.PaymentRemarks] = ("dbo.MAX_GlobalKPIClaimPaymentDenial via reporting view", PaymentDate),
             }),
     ];
 

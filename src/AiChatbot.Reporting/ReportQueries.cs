@@ -18,6 +18,9 @@ public sealed partial class ReportQueries
     private readonly string _insuranceAr;
     private readonly string _claimVolume;
     private readonly string _claimFinancials;
+    private readonly string _submissions;
+    private readonly string _resubmissions;
+    private readonly string _paymentRemarks;
     private readonly string _daysToBill;
     private readonly string _denials;
     private readonly string _patientBilling;
@@ -28,6 +31,9 @@ public sealed partial class ReportQueries
         _insuranceAr = ValidateViewName(options.InsuranceArView, nameof(options.InsuranceArView));
         _claimVolume = ValidateViewName(options.ClaimVolumeView, nameof(options.ClaimVolumeView));
         _claimFinancials = ValidateViewName(options.ClaimFinancialsView, nameof(options.ClaimFinancialsView));
+        _submissions = ValidateViewName(options.SubmissionsView, nameof(options.SubmissionsView));
+        _resubmissions = ValidateViewName(options.ResubmissionsView, nameof(options.ResubmissionsView));
+        _paymentRemarks = ValidateViewName(options.PaymentRemarksView, nameof(options.PaymentRemarksView));
         _daysToBill = ValidateViewName(options.DaysToBillView, nameof(options.DaysToBillView));
         _denials = ValidateViewName(options.DenialsView, nameof(options.DenialsView));
         _patientBilling = ValidateViewName(options.PatientBillingView, nameof(options.PatientBillingView));
@@ -260,6 +266,7 @@ public sealed partial class ReportQueries
         var where = new StringBuilder($"{dateCol} >= @start AND {dateCol} < DATEADD(DAY, 1, @end) AND Practice_Code IN ({scope})");
         if (payerCol is not null) Optional(where, p, payerCol, "@payerId", payerId);
         if (providerCol is not null) Optional(where, p, providerCol, "@providerId", providerId);
+        if (spec.RequiredNotEmpty is { } needed) where.Append($" AND {needed} IS NOT NULL AND {needed} <> ''");
         string Sub(string s) => s.Replace("{date}", dateCol);
         var groups = string.Join(", ", spec.Groups.Select(g => Sub(g.Sql)));
         var measures = string.Join(", ", spec.Measures.Select(m => m.Sql));
@@ -279,6 +286,9 @@ public sealed partial class ReportQueries
             Reporting.GroupedSource.Payments => (_payments, DateColumn(basis), "Payer_Id", "Rendering_Provider_ID"),
             Reporting.GroupedSource.ClaimVolume => (_claimVolume, "DOS", null, "Rendering_Provider_ID"),
             Reporting.GroupedSource.ClaimFinancials => (_claimFinancials, "DOS", "Ins_Payer_Id", "Rendering_Provider_ID"),
+            Reporting.GroupedSource.Submissions => (_submissions, "Submission_Date_Time", "Ins_Payer_ID", null),
+            Reporting.GroupedSource.Resubmissions => (_resubmissions, "Submission_Date", "Ins_Payer_Id", null),
+            Reporting.GroupedSource.PaymentRemarks => (_paymentRemarks, "DOP", "Ins_Payer_Id", null),
             _ => (_denials, "Claim_Status_Date", "Ins_Payer_Id", null),
         };
 
@@ -290,6 +300,9 @@ public sealed partial class ReportQueries
             {
                 Reporting.GroupedSource.ClaimVolume => ReportCatalog.ClaimVolume,
                 Reporting.GroupedSource.ClaimFinancials => "claim-financials",
+                Reporting.GroupedSource.Submissions => "claim-submissions",
+                Reporting.GroupedSource.Resubmissions => "claim-resubmissions",
+                Reporting.GroupedSource.PaymentRemarks => "payment-remarks",
                 Reporting.GroupedSource.Denials => ReportCatalog.Denials,
                 _ => ReportCatalog.InsuranceVsPatient,
             }
@@ -299,6 +312,9 @@ public sealed partial class ReportQueries
             ReportCatalog.InsuranceAging => ("Billed_Date", _insuranceAr),
             ReportCatalog.ClaimVolume => ("DOS", _claimVolume),
             "claim-financials" => ("DOS", _claimFinancials),
+            "claim-submissions" => ("Submission_Date_Time", _submissions),
+            "claim-resubmissions" => ("Submission_Date", _resubmissions),
+            "payment-remarks" => ("DOP", _paymentRemarks),
             ReportCatalog.DaysToBill => ("First_Submission_Date", _daysToBill),
             ReportCatalog.Denials => ("Claim_Status_Date", _denials),
             ReportCatalog.PatientBilling => ("Billed_Date", _patientBilling),
