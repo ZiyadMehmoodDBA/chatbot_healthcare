@@ -15,7 +15,10 @@ Related: [SQL_Reporting_Query_Layer.md](SQL_Reporting_Query_Layer.md) (data acce
 | Swap model and data source without code changes | Provider and data source are chosen at runtime from a settings screen. |
 | Small, auditable surface | Four libraries with one job each, one API host, one SPA. |
 
-Non-goals today: per-user authentication, multi-tenant isolation, horizontal scale (see section 9).
+Target design: [rcm-ai-chatbot-project-architecture (1).md](<rcm-ai-chatbot-project-architecture (1).md>) and
+[Target_Diagram.md](Target_Diagram.md). This file describes what exists today.
+
+Non-goals today: multi-tenant isolation, horizontal scale, patient-level reporting (see section 9).
 
 ## 2. System context
 
@@ -23,13 +26,19 @@ Non-goals today: per-user authentication, multi-tenant isolation, horizontal sca
 flowchart LR
     U[User browser] -->|HTTP, SSE| UI[Angular 20 SPA]
     UI -->|/api/chat, /api/settings/*| API[ASP.NET Core API]
+    API --> AUTH[Actor provider: Azure AD + chatbot.UserAccess]
+    API --> RB[Report broker: authz, fixed SQL, evidence, audit]
+    AG --> COORD[Coordinator: route before any model call]
     API --> AG[Chat agent]
     AG --> SAFE[Safe-to-share layer]
     AG -->|IChatClient| LLM{{LLM provider}}
     LLM --> OAI[OpenAI - external]
     LLM --> OLL[Ollama - local]
-    AG --> TOOLS[Report tools]
-    TOOLS --> RD[Report reader]
+    AG --> TOOLS[Domain modules: 3 report tools]
+    TOOLS --> RB
+    RB --> RPT[(Reporting views: payments, insurance A/R)]
+    RB --> AUDIT[(chatbot.AuditLog, INSERT-only)]
+    AG --> RD[Legacy report reader]
     RD --> DEMO[(Synthetic demo data)]
     RD --> SQL[(SQL Server reporting views)]
     API --> CFG[(Settings files, user-secrets)]
@@ -42,10 +51,13 @@ boundary; settings sit beside the API.
 
 ```mermaid
 flowchart TB
-    Api[AiChatbot.Api<br/>host, endpoints, settings] --> Agent
+    Api[AiChatbot.Api<br/>host, endpoints, auth, settings] --> Agent
     Api --> Llm
     Api --> Data
-    Agent[AiChatbot.Agent<br/>ChatAgent, tools, conversation store] --> Safety
+    Api --> Reporting
+    Agent[AiChatbot.Agent<br/>ChatAgent, Coordinator, domain modules, conversation store] --> Safety
+    Agent --> Reporting
+    Reporting[AiChatbot.Reporting<br/>catalog, ReportBroker, audit, CSV export]
     Llm[AiChatbot.Llm<br/>providers, provider factory] --> Agent
     Data[AiChatbot.Data<br/>SQL reader, DB settings, tester] --> Agent
     Safety[AiChatbot.Safety<br/>tokenize, screen, policy, finalize]
@@ -54,8 +66,9 @@ flowchart TB
 | Project | Responsibility | Does not do |
 |---|---|---|
 | **Client** (Angular, standalone components, signals) | Chat view, streaming render, settings dialog (AI model, Database tabs). | Hold secrets or rules. The browser is untrusted. |
-| **AiChatbot.Api** | HTTP surface, `/api/chat` streaming, protected `/api/settings/*`, composition root (DI), startup guards. | Business rules. |
-| **AiChatbot.Agent** | Tool-calling loop (max 4 rounds), conversation history, `ReportTools`, `IReportDataReader` contract. | Talk to a specific vendor or database. |
+| **AiChatbot.Api** | HTTP surface: `/api/chat` (NDJSON), `/api/reports/*`, protected `/api/settings/*`, `/api/health`; sign-in and `IActorProvider`; composition root (DI); startup guards. | Business rules. |
+| **AiChatbot.Agent** | `ChatAgent` tool loop, `DecisionEngine` (memory questions, clarifying questions, patient lookup, report routing), `ISessionMemory`, `Coordinator` routing (Single / Multi / Open / Patient / Unsupported, max `MaxToolCalls`=6), `IDomainModule` tool contracts (payments, A/R, claims, denials), `RcmReportTools`, per-user `ConversationScope`, conversation history, legacy `ReportTools` demo path. | Talk to a specific vendor or database. |
+| **AiChatbot.Reporting** | Report catalog (6 draft aggregate reports and the chat-only patient billing balance), `ReportBroker` (actor + practice scope, role check, fixed parameterized SQL, evidence), audit queue to `chatbot.AuditLog`, CSV export. | Depend on other projects. Accept SQL or caller text in queries. |
 | **AiChatbot.Llm** | `IChatClient` per provider, provider-kind classification, saved provider settings, model discovery. | Decide what data may be sent. |
 | **AiChatbot.Safety** | Tokenization, input screen, policy gate, placeholder rendering, streaming finalizer. | Know about HTTP, vendors or SQL. |
 | **AiChatbot.Data** | SQL reader over two views, DB settings (encrypted), connection tester, live-switchable reader. | Accept SQL text from anywhere. |
@@ -91,6 +104,16 @@ sequenceDiagram
     API-->>UI: SSE deltas
 ```
 
+### Decision step (before any model call)
+
+`DecisionEngine` runs first in RCM mode, in a fixed order. Details: [Conversation_Design.md](Conversation_Design.md).
+
+1. Cancel or start over.
+2. Questions about the conversation (first or previous question, recap, "summarize that", repeat, help), answered from `ISessionMemory`. No model call.
+3. An answer to a question the bot asked (account number, yes or no).
+4. Patient account requests: ask for what is missing, then the server looks up one account through `ReportBroker`. The model never sees the result.
+5. Report questions: the coordinator's plan, plus the previous report and period as follow-up context.
+
 Key behaviours:
 
 - **Local model** (Ollama on loopback or a trusted host): streams live through the finalizer.
@@ -113,8 +136,10 @@ Enforced in one library, in front of every model call.
 
 ## 6. Data access
 
-- Two fixed views are the **contract**: `reporting.vw_PatientSummary`, `reporting.vw_FacilityMetrics`. The reader
-  issues fixed, parameterized `SELECT TOP (1)`; view names are validated identifiers.
+- Two data paths. **RCM reports** (current direction): every run goes through `ReportBroker` over the reporting views in
+  `data/reporting-views/` (payments, insurance A/R); aggregate-only, no patient columns. **Legacy demo path**:
+  `reporting.vw_PatientSummary` and `reporting.vw_FacilityMetrics`, fixed parameterized `SELECT TOP (1)`.
+  View names are validated identifiers.
 - `IReportingSource` resolves the active source: **saved DB settings win, else configuration**.
   `SwitchableReportDataReader` follows it live, so saving in the UI applies without a restart.
 - Connection details: built with `SqlConnectionStringBuilder`, remote servers forced onto TCP, 5 s connect timeout.
@@ -139,18 +164,29 @@ Enforced in one library, in front of every model call.
 | Provider and DB targets | http(s) only, no userinfo, no link-local or metadata addresses, IPv6 zone IDs rejected. |
 | Saved credentials | Reused only for the same URL or server and user; never returned to the browser. |
 | Model to data | Tools only; fixed queries; token resolution on the server. |
-| Production | `Reports:Provider=Sql` outside Development refuses to start without `Reports:AcknowledgeNoUserAuth=true`. |
+| Chat and reports | Signed-in actor required. Azure AD token + `chatbot.UserAccess` lookup (`Auth:Mode=AzureAd`, default outside Development); fixed `Auth:DevActor` in Development only. Unknown or inactive user: 403. Unreadable access table: 503, never access. |
+| Report runs | Actor + practice scope + role check in `ReportBroker`; caller text never enters SQL. |
+| Audit | Every report run and export is logged and queued to `chatbot.AuditLog` (INSERT-only login, `ConnectionStrings:RcmAudit`). The queue never blocks a report; drops are counted. |
+| Legacy demo path | `Reports:Provider=Sql` outside Development refuses to start without `Reports:AcknowledgeNoUserAuth=true`. |
 
 ## 9. Known gaps and roadmap
 
 | Gap | Impact | Next step |
 |---|---|---|
-| No user authentication or scoping | Any caller can read any account. | Add auth (OIDC), per-user account/facility scopes in the reader. |
+| ~~No user authentication or scoping~~ | Closed for chat and reports: Azure AD, `chatbot.UserAccess`, practice scope in `ReportBroker`. Legacy demo reader still has no per-user scope. | Retire the legacy reader or scope it. |
+| 6 draft aggregate reports | Payments, A/R aging, claim volume, days to bill, denial counts. No revenue, charges, adjustments, collections, CPT, submission or trend questions. | Add reports per catalog rule; owner signs definitions (`Data_Maps.md`). New views are unverified against live data (dictionary shows 0 rows). |
+| No metric registry or semantic layer | Formulas live in C# `ReportCatalog`, all "Draft". | Central certified metric registry; semantic layer in the DW. |
+| No query-planning stage, validation agent or terminology handling | LLM picks tool and dates; "revenue" is not clarified. | Structured plan + deterministic validator; terminology map and clarification. |
+| Follow-up context is partial | Session memory keeps turns, the patient in focus and the last report. Filters are not shown as chips, and memory is in-process only. | Show conversation filters in the UI; persist behind `ISessionMemory`. |
+| App-level scope only | No SQL Server row-level security. | Add RLS in the warehouse. |
+| Patient billing balance only | One patient account by number (never by name), table-only: lines and totals from `FactCPT_KPI`. No statement number, delivery or dates exist in the warehouse; claim detail and other patient data are not offered. | Validate balance against the billing system; decide on export and on a separate patient-view login. |
+| CSV export only, no charts or KPI cards | Spec asks for Excel/PDF, charts. | UI work after more reports exist. |
+| In-process modules, no MCP transport | Spec shows a Reporting MCP server. | Add transport behind `IDomainModule` later. |
 | Hostnames not resolved for SSRF checks | A name pointing at a blocked address passes. | Connect-time address guard; operator allowlist (`Reports:AllowedServers`). |
 | Saved password reused after weaker transport flags | Turning encryption off keeps the saved password. | Include Encrypt/Trust in the reuse rule. |
 | In-memory conversation store and token vault | Lost on restart; single instance only. | Persist behind `IConversationStore`; sticky or shared store for scale-out. |
-| Real warehouse does not match the two views | The chat cannot answer from `MedcareDW_Dev` yet. | Write the reporting views over real tables with the data owner; extend tools for billing questions. |
-| PHI handling is a fixed policy | No per-field allow/deny. | Configurable PHI policy in `Safety` with an audit log. |
+| Reporting views cover only payments and insurance A/R | Other billing areas have no view. | Write views with the data owner as each report is added. |
+| PHI handling is a fixed policy | No per-field allow/deny. | Configurable PHI policy in `Safety`. |
 
 ## 10. Key decisions
 
