@@ -285,6 +285,30 @@ public class ConversationTests
     }
 
     [Fact]
+    public async Task A_model_that_skips_the_report_tool_cannot_show_its_own_figures()
+    {
+        var rig = Build(ProviderKind.Local, Text("Southern California Medicare denied 1,234 claims; top reason Service Not Covered, 345 claims."));
+
+        var (text, turn) = await rig.Say("who denied the most claims in 2025 and why?");
+
+        Assert.DoesNotContain("1,234", text);
+        Assert.DoesNotContain("Service Not Covered", text);
+        Assert.Contains("won't guess", text);
+        Assert.Empty(turn.Reports);
+        Assert.Contains(turn.Trace, t => t.Kind == "guard");
+        Assert.Empty(rig.Exec.Queries);
+    }
+
+    [Fact]
+    public async Task A_model_that_runs_the_tool_still_answers_normally()
+    {
+        var rig = WithTwoReports();
+        var (text, turn) = await rig.Say("show payments by payer for last month");
+        Assert.DoesNotContain("won't guess", text);
+        Assert.NotEmpty(turn.Reports);
+    }
+
+    [Fact]
     public async Task Start_over_clears_the_patient_figures_from_the_record()
     {
         var rig = Build();

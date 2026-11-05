@@ -171,7 +171,9 @@ public sealed class ChatAgent(
         var withTools = new ChatOptions { Temperature = 0.2f, Tools = [.. (rcmMode ? RcmReportTools.Declare(plan!.Modules) : tools.Declarations)] };
         var withoutTools = new ChatOptions { Temperature = 0.2f };
 
-        var live = chat.Kind == ProviderKind.Local;           // Local streams as it goes; External is validated first
+        // Local streams as it goes, except in RCM mode: there the text is held and checked (a model that skips the
+        // report tool must not have its own figures shown). External is always validated first.
+        var live = chat.Kind == ProviderKind.Local && !rcmMode;
         var values = new Dictionary<string, string>();        // every tool value, for server-side placeholder fill
         var shown = new List<string>();                       // values the model itself was allowed to see
         // Numbers the user typed ("last 6 months") are known, not invented, when the model repeats them
@@ -212,6 +214,14 @@ public sealed class ChatAgent(
                 messages.Add(new ChatMessage(ChatRole.Tool,
                     new List<AIContent> { new FunctionResultContent(call.CallId, payload) }));
             }
+        }
+
+        // The plan expects a report, or the model gave numbers it never got from a tool: its text is not shown
+        if (rcmMode && turn!.ToolCalls == 0
+            && (plan!.Kind is PlanKind.Single or PlanKind.Multi || ResponseFinalizer.HasInventedNumbers(finalText, shown)))
+        {
+            turn.Trace.Add(new TraceStep("guard", "no-report", "replaced", Detail: "model answered without running a report"));
+            finalText = NoReportReply;
         }
 
         turn?.Trace.Add(new TraceStep("llm", chat.Model, "ok", Detail: $"rounds={rounds}"));
@@ -351,6 +361,11 @@ public sealed class ChatAgent(
 
     // External text is checked before the user sees it: a number the model was never shown means it made one up,
     // so the answer is replaced by a server-built listing of the real tool values.
+    // Shown when the model answered a data question without running a report. Nothing from the model's text is used.
+    private const string NoReportReply =
+        "I wasn't able to run a report for that, so I won't guess at figures. Please try again and include a date range, " +
+        "for example 'payers owing the most as of today' or 'denials for 2025'.";
+
     private string ExternalOutput(Guid conversationId, string modelText, Dictionary<string, string> values, List<string> shown)
     {
         if (values.Count > 0 && ResponseFinalizer.HasInventedNumbers(modelText, shown))
