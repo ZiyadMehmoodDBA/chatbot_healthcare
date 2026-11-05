@@ -54,6 +54,21 @@ Rules:
 - "No lines found" is worded the same whether the account does not exist or is outside the user's practices.
 - A database failure says the data is unavailable. It is never reported as "no lines".
 
+## Memory across restarts
+
+With `ConnectionStrings:RcmSession` set, each conversation's turn log, last report and last drillable table are written to
+`chatbot.SessionState` a moment after each change (bursts become one write) and read back the first time the conversation
+is touched after a restart. The key is the per-user conversation scope, so one user cannot reach another's row.
+
+- Not stored: the pending question, the patient in focus, and the content of patient turns (the turn stays in the log as
+  "(patient result cleared)"). Stored answers hold aggregate report figures and the user's own questions only.
+- Failure handling: a failed load starts an empty session (and is not retried for 30 seconds); a failed save is kept and
+  retried; nothing is saved for a conversation whose stored copy has not been read, so an outage cannot overwrite history;
+  turns recorded during an outage are merged behind the stored ones when the store returns.
+- Not stored: model-facing history (what the model sees as earlier messages). It restarts empty; the recap, "first question"
+  and drill-down all work from the stored session.
+- Retention: rows idle longer than `Session:RetentionDays` (default 30) are deleted every six hours.
+
 ## Periods and comparison
 
 `Periods` (Reporting) turns time words into exact dates: today, yesterday, this/last week, this/last month, MTD, QTD,

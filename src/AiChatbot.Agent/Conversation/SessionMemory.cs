@@ -130,6 +130,32 @@ public sealed class InMemorySessionMemory : ISessionMemory
         }
     }
 
+    // The part of a session that survives a restart (see PersistedSession)
+    public PersistedSession? Export(Guid id)
+    {
+        if (!_sessions.TryGetValue(id, out var s)) return null;
+        lock (s.Lock)
+            return new PersistedSession(SessionStateCodec.CurrentVersion, s.Next, [.. s.Turns], s.LastReport, s.LastDrill);
+    }
+
+    // Puts saved turns before whatever this process already recorded for the conversation (the store may have been
+    // unreachable when the session started), renumbering so turn ids stay in order.
+    public void Restore(Guid id, PersistedSession saved)
+    {
+        var s = Touch(id);
+        lock (s.Lock)
+        {
+            var current = s.Turns.ToList();
+            s.Turns.Clear();
+            var next = 1;
+            foreach (var t in saved.Turns.Concat(current)) s.Turns.Add(t with { Number = next++ });
+            while (s.Turns.Count > MaxTurnsPerSession) s.Turns.RemoveAt(1);
+            s.Next = next;
+            s.LastReport ??= saved.LastReport;
+            s.LastDrill ??= saved.LastDrill;
+        }
+    }
+
     private Session Touch(Guid id)
     {
         if (!_sessions.TryGetValue(id, out var s))

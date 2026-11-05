@@ -107,7 +107,7 @@ public class ConversationTests
         public required ScriptedClient Client { get; init; }
         public required Exec Exec { get; init; }
         public required CaptureAudit Audit { get; init; }
-        public required InMemorySessionMemory Memory { get; init; }
+        public required ISessionMemory Memory { get; init; }
         public Guid Conversation { get; } = Guid.NewGuid();
 
         public async Task<(string Text, ChatTurn Turn)> Say(string prompt, Actor? actor = null, Guid? conversation = null)
@@ -120,13 +120,15 @@ public class ConversationTests
     }
 
     private static Rig Build(ProviderKind kind = ProviderKind.Local, params ChatResponseUpdate[][] rounds)
+        => BuildWith(new InMemorySessionMemory(), kind, rounds);
+
+    private static Rig BuildWith(ISessionMemory memory, ProviderKind kind = ProviderKind.Local, params ChatResponseUpdate[][] rounds)
     {
         var client = new ScriptedClient(rounds.Length == 0 ? [Text("ok")] : rounds);
         var tokens = new TokenizationService();
         var layer = new SafeToShareLayer(tokens, new PolicyGate(new PolicyOptions(false)));
         var exec = new Exec();
         var audit = new CaptureAudit();
-        var memory = new InMemorySessionMemory();
         var broker = new ReportBroker(exec, audit, new ReportServiceOptions(), () => Now);
         var agent = new ChatAgent(new FakeProvider(client, kind), new InMemoryConversationStore(), layer,
             new ReportTools(new SyntheticReportDataReader(), tokens), new RcmReportTools(broker, () => Now), memory);
@@ -684,6 +686,86 @@ public class ConversationTests
         var target = DrillPlanner.For(r);
 
         Assert.Null(target); // no row has a purely numeric key
+    }
+
+    // ----- durable session memory, through the real chat path -----
+
+    private sealed class MemStore : ISessionStateStore
+    {
+        public Dictionary<Guid, string> Rows { get; } = [];
+        public bool Down { get; set; }
+        public Task<string?> LoadAsync(Guid k, CancellationToken ct)
+            => Down ? throw new InvalidOperationException("down") : Task.FromResult(Rows.TryGetValue(k, out var j) ? j : null);
+        public Task SaveAsync(Guid k, string json, DateTime now, CancellationToken ct)
+        { if (Down) throw new InvalidOperationException("down"); Rows[k] = json; return Task.CompletedTask; }
+        public Task<int> PurgeAsync(DateTime cutoff, CancellationToken ct) => Task.FromResult(0);
+    }
+
+    private static PersistentSessionMemory Durable(MemStore store) => new(new InMemorySessionMemory(), store);
+
+    [Fact]
+    public async Task After_a_restart_the_recap_still_knows_the_earlier_questions()
+    {
+        var store = new MemStore();
+        var m1 = Durable(store);
+        var rig1 = BuildWith(m1, ProviderKind.Local, Call(RcmReportTools.PaymentsByPayer, May), Text("Top payer {PAYER_TOP_NAME}."));
+        await rig1.Say("show payments by payer for last month");
+        await m1.FlushAsync(default);
+
+        var rig2 = BuildWith(Durable(store)); // new process, same store, same user and conversation id
+        var (first, _) = await rig2.Say("what was my first question?", conversation: rig1.Conversation);
+
+        Assert.Contains("payments by payer", first);
+        Assert.Empty(rig2.Client.Rounds);
+    }
+
+    [Fact]
+    public async Task After_a_restart_the_last_table_can_still_be_drilled()
+    {
+        var store = new MemStore();
+        var m1 = Durable(store);
+        var rig1 = BuildWith(m1, ProviderKind.Local, Call(RcmReportTools.PaymentsByPayer, May), Text("Top payer {PAYER_TOP_NAME}."));
+        await rig1.Say("show payments by payer for last month");
+        await m1.FlushAsync(default);
+
+        var rig2 = BuildWith(Durable(store));
+        var (_, turn) = await rig2.Say("drill into row 1", conversation: rig1.Conversation);
+
+        Assert.Equal("payments-by-month", Assert.Single(turn.Reports).Evidence.ReportId);
+    }
+
+    [Fact]
+    public async Task A_patient_lookup_leaves_nothing_in_the_store()
+    {
+        var store = new MemStore();
+        var m1 = Durable(store);
+        var rig1 = BuildWith(m1);
+        await rig1.Say("statement for account 12345");
+        await m1.FlushAsync(default);
+
+        var json = Assert.Single(store.Rows.Values);
+        Assert.DoesNotContain("12345", json);
+        Assert.DoesNotContain("ACCT_", json);
+        Assert.DoesNotContain("99213", json);
+        var rig2 = BuildWith(Durable(store));
+        var snap = rig2.Memory.Get(ScopeFor(rig1));
+        Assert.Equal(SessionStateCodec.PatientAnswer, Assert.Single(snap.Turns).Answer);
+        Assert.Null(snap.ActiveAccount);
+    }
+
+    [Fact]
+    public async Task A_store_outage_never_changes_what_the_user_gets()
+    {
+        var store = new MemStore { Down = true };
+        var m = Durable(store);
+        var rig = BuildWith(m, ProviderKind.Local, Call(RcmReportTools.PaymentsByPayer, May), Text("Top payer {PAYER_TOP_NAME}."));
+
+        var (text, turn) = await rig.Say("show payments by payer for last month");
+        await m.FlushAsync(default);
+
+        Assert.Contains("Top payer", text);
+        Assert.Single(turn.Reports);
+        Assert.Empty(store.Rows);
     }
 
     [Fact]

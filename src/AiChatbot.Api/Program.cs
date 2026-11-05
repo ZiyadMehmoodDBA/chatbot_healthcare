@@ -12,7 +12,22 @@ using AiChatbot.Safety;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IConversationStore, InMemoryConversationStore>();
-builder.Services.AddSingleton<ISessionMemory, InMemorySessionMemory>();
+// Session memory is process-local unless ConnectionStrings:RcmSession names a login for chatbot.SessionState; then a
+// durable copy survives restarts (a database problem never fails a chat turn: the session just starts empty)
+if (builder.Configuration.GetConnectionString("RcmSession") is { Length: > 0 } sessionConnection)
+{
+    builder.Services.Configure<SessionPersistenceOptions>(builder.Configuration.GetSection("Session"));
+    builder.Services.AddSingleton<ISessionStateStore>(
+        _ => new AiChatbot.Data.SqlSessionStateStore(() => new Microsoft.Data.SqlClient.SqlConnection(sessionConnection)));
+    builder.Services.AddSingleton<PersistentSessionMemory>(sp => new PersistentSessionMemory(
+        new InMemorySessionMemory(), sp.GetRequiredService<ISessionStateStore>(),
+        sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SessionPersistenceOptions>>().Value,
+        sp.GetRequiredService<ILogger<PersistentSessionMemory>>()));
+    builder.Services.AddSingleton<ISessionMemory>(sp => sp.GetRequiredService<PersistentSessionMemory>());
+    builder.Services.AddHostedService<SessionWriterService>();
+}
+else
+    builder.Services.AddSingleton<ISessionMemory, InMemorySessionMemory>();
 builder.Services.AddSafety(builder.Configuration);
 builder.Services.AddDataProtection().SetApplicationName("AiChatbot");
 builder.Services.AddReportData(
@@ -139,6 +154,11 @@ public record ChatRequest(string? Prompt, Guid ConversationId)
 public partial class Program;
 
 // Drains the audit queue into SQL in the background; stops cleanly on shutdown
+public sealed class SessionWriterService(PersistentSessionMemory memory) : BackgroundService
+{
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) => memory.RunAsync(stoppingToken);
+}
+
 public sealed class AuditWriterService(IReportAudit audit) : BackgroundService
 {
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
