@@ -42,7 +42,7 @@ public static class ReportDigests
                 return $"{p}: overall average {Days(rows[0][3])} days from service to first submission " +
                        $"across {Num(rows[0][2])} claims (longest {Num(rows[0][4])} days).";
             case ReportCatalog.Denials:
-                return $"{p}: {Num(rows[0][2])} claims with a denial or rejection status entry " +
+                return $"{p}: {Num(rows[0][2])} claims with a claim-status entry (accepted or rejected, not all denials) " +
                        $"({Num(rows[0][3])} status records) in {Count(rows.Count - 1, "status and reason group")}. Counts only, no dollar amounts.";
             case ReportCatalog.PatientBilling:
             {

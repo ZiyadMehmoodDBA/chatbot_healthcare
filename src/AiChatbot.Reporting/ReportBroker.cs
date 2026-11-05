@@ -178,7 +178,7 @@ public sealed class ReportBroker(
             if (truncated && def.Id == ReportCatalog.PatientBilling)
                 caveats.Insert(0, $"Showing the newest {options.MaxPatientRows} claim lines; the total row covers every line.");
             var evidence = new ReportEvidence(
-                def.Id, def.MetricVersion, def.ApprovalStatus, def.Source, basis, period, filters,
+                def.Id, def.MetricVersion, MetricRegistry.Default.StatusFor(def.Id) ?? def.ApprovalStatus, def.Source, basis, period, filters,
                 rows.Count, truncated, _now(), caveats, through);
 
             Record(action, actor, def.Id, filters, "ok", rows.Count, started, correlationId);
@@ -246,7 +246,7 @@ public sealed class ReportBroker(
                 rows.Insert(0, ["", "All payers", Int(extra[0][0]), Dec(extra[0][1]), Int(extra[0][2])]);
                 break;
             case ReportCatalog.Denials when extra is { Count: > 0 } && Int(extra[0][0]) > 0:
-                rows.Insert(0, ["All", "All statuses and reasons", Int(extra[0][0]), Int(extra[0][1]), Int(extra[0][2])]);
+                rows.Insert(0, ["Any status", "All status entries", Int(extra[0][0]), Int(extra[0][1]), Int(extra[0][2])]);
                 break;
             case ReportCatalog.PatientBilling when rows.Count > 0 && extra is { Count: > 0 }:
                 var t = extra[0];

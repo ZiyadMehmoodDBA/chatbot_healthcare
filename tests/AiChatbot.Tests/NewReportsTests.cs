@@ -123,7 +123,7 @@ public class NewReportsTests
         var r = await Broker(exec).RunAsync(Manager, ReportCatalog.Denials, May, "run", "c");
 
         Assert.Equal(3, r.Rows.Count);
-        Assert.Equal("All", r.Rows[0][0]);
+        Assert.Equal("Any status", r.Rows[0][0]);
         Assert.Equal(5L, r.Rows[0][2]); // overall distinct claims; groups (4 + 2) can overlap
         Assert.Equal("status", r.Evidence.DateBasis);
         Assert.Contains(r.Evidence.Caveats, c => c.Contains("counts claims, not dollars"));

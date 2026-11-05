@@ -32,6 +32,7 @@ public static class ReportCatalog
     private static readonly string[] PaymentCaveats =
     [
         "Draft definition: not yet approved by the RCM business owner.",
+        "OPEN DECISION DEC-01: on sampled rows InsurancePayments equals the billed charge, and the paid amount sits in InsuranceAmountPaid. Totals on this pair were about 362M against 54M for the other pair (checked 2026-11-05). These figures may overstate what was collected until the owner confirms which pair is the real payment.",
         "Payments are InsurancePayments and PatientPayments (they reconcile to Total_Payment on 99.998% of rows). The InsuranceAmountPaid/PatientAmountPaid pair is not used.",
         "Only the posting date is offered: Deposit_Date is empty on about 46% of rows and uses 1900-01-01 as a placeholder.",
         "Negative payments (recoupments and refunds) are included in the totals.",
@@ -150,7 +151,7 @@ public static class ReportCatalog
 
         new(Denials,
             "Denial and rejection analysis",
-            "Claims with a denial or rejection status entry in the period, by status and reason.",
+            "Claims with a claim-status entry (accepted or rejected) in the period, by status and reason.",
             Owner, "0.1-draft", "Draft", "dbo.FactPayerRejectionReason via reporting view",
             [StatusDate], StatusDate,
             ["practiceCodes", "payerId", "topN"],
@@ -164,7 +165,8 @@ public static class ReportCatalog
             [
                 "Draft definition: not yet approved by the RCM business owner.",
                 "This counts claims, not dollars: the warehouse has no denied-amount column, so no denied amount is reported.",
-                "Date basis is the claim status date. Which status values mean denial versus rejection is not documented, so every status record is included and shown by its status.",
+                "Date basis is the claim status date. The table holds only two statuses, Accepted and Rejected (checked 2026-11-05). Accepted means the payer or clearinghouse acknowledged the claim, not that it was paid or denied. Rejected is a front-end rejection. The table has no remittance denial codes, so true payer denials cannot be measured from it.",
+                "The overall row counts every status entry, accepted ones included. It is not a count of denied claims. Read the Rejected rows for rejections.",
                 "The first row is the overall count across all statuses and reasons. A claim can appear under more than one reason, so reason rows do not add up to the overall count.",
                 "Free-text reason detail is not shown.",
             ],

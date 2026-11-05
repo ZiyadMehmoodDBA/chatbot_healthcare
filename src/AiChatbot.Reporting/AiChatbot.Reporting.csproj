@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Questions\question-catalogue.json" LogicalName="question-catalogue.json" />
+    <EmbeddedResource Include="Registry\metric-registry.json" LogicalName="metric-registry.json" />
   </ItemGroup>
 
   <ItemGroup>

@@ -129,7 +129,7 @@ Eleven themes, in the order a CEO asks them. IDs are stable; use them in tests a
 |---|---|---|---|---|
 | Q1 | How current is this data? | Last load date | `DataThrough` in every report's evidence | BUILT |
 | Q2 | Can I trust this number? | Approval status, caveats, definition | evidence on every report | BUILT (all Draft) |
-| Q3 | Which numbers are official? | Approved vs draft metrics | metric registry | NONE (no registry yet) |
+| Q3 | Which numbers are official? | Approved vs draft metrics | metric registry (`metric-registry.json`) | BUILT (registry and sign-off record; a chat answer is not built) |
 | Q4 | Who looked at what? | Audit trail | `chatbot.AuditLog` | BUILT (not exposed to chat) |
 | Q5 | Did the data load fully? | Row counts and last sync per table | ETL lineage | NONE (needs a freshness check; loads are not transactional) |
 
