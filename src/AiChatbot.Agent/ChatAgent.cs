@@ -202,8 +202,8 @@ public sealed class ChatAgent(
             .ToList();
         var shownText = new StringBuilder();                  // what the user was actually shown, for session memory
         // Low temperature: factual, repeatable answers
-        var withTools = new ChatOptions { Temperature = 0.2f, Tools = [.. (rcmMode ? RcmReportTools.Declare(plan!.Modules) : tools.Declarations)] };
-        var withoutTools = new ChatOptions { Temperature = 0.2f };
+        var withTools = new ChatOptions { Temperature = 0.2f, MaxOutputTokens = usage?.Options.MaxOutputTokensPerRound is > 0 and var cap ? cap : null, Tools = [.. (rcmMode ? RcmReportTools.Declare(plan!.Modules) : tools.Declarations)] };
+        var withoutTools = new ChatOptions { Temperature = 0.2f, MaxOutputTokens = withTools.MaxOutputTokens };
 
         // Local streams as it goes, except in RCM mode: there the text is held and checked (a model that skips the
         // report tool must not have its own figures shown). External is always validated first.
@@ -224,35 +224,50 @@ public sealed class ChatAgent(
             // The last round offers no tools, so the model has to answer
             var options = round < MaxToolRounds ? withTools : withoutTools;
             long roundIn = 0, roundOut = 0;
-            await foreach (var update in chat.Client.GetStreamingResponseAsync(messages, options, ct))
+            // Budget is checked and charged before every round, not only the first: a question that loops through
+            // tools cannot spend past the limit, and a cancelled or failed round still counts. RCM text is never
+            // streamed live, so stopping here leaves nothing half shown.
+            if (rcmMode && usage is not null && !usage.TryReserveRound(turn!.Actor!.UserId))
             {
-                foreach (var c in update.Contents)
+                turn.Trace.Add(new TraceStep("budget", "model", "stopped", Detail: $"round={round + 1}"));
+                finalText = UsageMeter.BudgetReply;
+                break;
+            }
+            turn?.ModelRoundsStarted();
+            try
+            {
+                await foreach (var update in chat.Client.GetStreamingResponseAsync(messages, options, ct))
                 {
-                    if (c is FunctionCallContent call) calls.Add(call);
-                    else if (c is UsageContent u)
+                    foreach (var c in update.Contents)
                     {
-                        roundIn += u.Details.InputTokenCount ?? 0;
-                        roundOut += u.Details.OutputTokenCount ?? 0;
+                        if (c is FunctionCallContent call) calls.Add(call);
+                        else if (c is UsageContent u)
+                        {
+                            roundIn += u.Details.InputTokenCount ?? 0;
+                            roundOut += u.Details.OutputTokenCount ?? 0;
+                        }
                     }
+                    if (string.IsNullOrEmpty(update.Text)) continue;
+                    text.Append(update.Text);
+                    if (!live) continue;
+                    var piece = stream.Push(update.Text);
+                    if (piece.Length > 0) { shownText.Append(piece); yield return piece; }
                 }
-                if (string.IsNullOrEmpty(update.Text)) continue;
-                text.Append(update.Text);
-                if (!live) continue;
-                var piece = stream.Push(update.Text);
-                if (piece.Length > 0) { shownText.Append(piece); yield return piece; }
+            }
+            finally
+            {
+                // Tokens are recorded even when the round was cancelled or failed part way
+                if (turn is not null)
+                {
+                    turn.InputTokens += roundIn;
+                    turn.OutputTokens += roundOut;
+                    if (rcmMode) usage?.Record(turn.Actor!.UserId, roundIn, roundOut, 0);
+                }
             }
             if (live)
             {
                 var rest = stream.Flush();
                 if (rest.Length > 0) { shownText.Append(rest); yield return rest; }
-            }
-            // Counted per round, as it happens, so a failure later in the question still shows what was used
-            if (turn is not null)
-            {
-                turn.InputTokens += roundIn;
-                turn.OutputTokens += roundOut;
-                turn.ModelRounds++;
-                if (rcmMode) usage?.Record(turn.Actor!.UserId, roundIn, roundOut, 1);
             }
 
             if (calls.Count == 0) { finalText = text.ToString(); break; }

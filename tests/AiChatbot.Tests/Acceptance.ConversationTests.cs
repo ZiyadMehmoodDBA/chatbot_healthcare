@@ -317,6 +317,34 @@ public partial class ConversationTests
         Assert.Equal(0, usage.Get("u").InputTokens);
     }
 
+    [Fact]
+    public async Task AC12_a_failed_model_round_still_counts_against_the_budget()
+    {
+        var usage = new UsageMeter(new UsageOptions { DailyModelRoundsPerUser = 10 });
+        var rig = BuildFull(new InMemorySessionMemory(), usage, ProviderKind.Local, Text("hello"));
+        rig.Client.Fail = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => rig.Say("tell me about healthcare reporting"));
+
+        Assert.Equal(1, usage.Get(Manager.UserId).ModelRounds);
+    }
+
+    [Fact]
+    public async Task AC12_the_budget_is_checked_again_before_each_tool_round()
+    {
+        var usage = new UsageMeter(new UsageOptions { DailyModelRoundsPerUser = 1 });
+        var rig = BuildFull(new InMemorySessionMemory(), usage, ProviderKind.Local,
+            Call(RcmReportTools.PaymentsByPayer, May), Text("{PAYER_TOP_NAME}"));
+
+        var (text, turn) = await rig.Say("show payments by payer for last month");
+
+        Assert.Equal(1, rig.Client.Rounds.Count);                 // second round never reached the model
+        Assert.Contains(turn.Trace, t => t.Kind == "budget" && t.Outcome == "stopped");
+        Assert.Equal(1, usage.Get(Manager.UserId).ModelRounds);
+        Assert.Single(turn.Reports);                              // the table still reaches the user
+        Assert.Contains(UsageMeter.BudgetReply, text);
+    }
+
     // AC14: when the model is down, everything decided in code still works
     [Fact]
     public async Task AC14_reports_comparisons_snapshots_drill_and_recap_work_with_the_model_down()
@@ -356,8 +384,26 @@ public class MagnitudeWordTests
     [InlineData("Payments were nine million last month.", true)]
     [InlineData("Roughly 3 thousand claims.", true)]
     [InlineData("Hundreds of denials.", true)]
+    [InlineData("Payments were forty-two in total.", true)]
+    [InlineData("Up twelve compared with April.", true)]
+    [InlineData("Payments rose by a lot, about five percent.", true)]
+    [InlineData("Total of 3 bn.", true)]
+    [InlineData("About two lakh.", true)]
     [InlineData("One payer leads, two follow, and it rose.", false)]
     [InlineData("Top payer {PAYER_TOP_NAME} with {PAYER_TOP_COMBINED}.", false)]
     public void Amount_words_count_as_invented_figures_but_plain_prose_does_not(string text, bool invented)
         => Assert.Equal(invented, ResponseFinalizer.HasInventedNumbers(text, []));
+}
+
+public class UsageMeterGuardTests
+{
+    [Fact]
+    public void Concurrent_reservations_cannot_pass_the_same_remaining_budget()
+    {
+        var meter = new UsageMeter(new UsageOptions { DailyModelRoundsPerUser = 5 });
+        var granted = 0;
+        Parallel.For(0, 50, _ => { if (meter.TryReserveRound("u")) Interlocked.Increment(ref granted); });
+        Assert.Equal(5, granted);
+        Assert.Equal(5, meter.Get("u").ModelRounds);
+    }
 }

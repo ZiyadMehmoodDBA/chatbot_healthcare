@@ -20,8 +20,9 @@ public static partial class ResponseFinalizer
     [GeneratedRegex(@"(?<![a-z])(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|hundreds|thousand|thousands|million|millions|billion|billions|dozen|half|quarter)(?![a-z])", RegexOptions.IgnoreCase)]
     private static partial Regex NumberWord();
 
-    // Words that state an amount ("nine million"). Small words such as "one payer" are ordinary prose and stay allowed.
-    [GeneratedRegex(@"(?<![a-z])(?:hundreds?|thousands?|millions?|billions?|trillions?|dozens?)(?![a-z])", RegexOptions.IgnoreCase)]
+    // Words that state an amount or a rate ("nine million", "forty-two", "12 percent", "3 bn", "lakh"). The words one to ten are
+    // ordinary prose ("one payer", "top ten") and stay allowed; a digit figure is still checked against report values.
+    [GeneratedRegex(@"(?<![a-z])(?:hundreds?|thousands?|millions?|billions?|trillions?|dozens?|lakhs?|crores?|bn|mn|percent|per\s+cent|percentage\s+points?|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?![a-z])", RegexOptions.IgnoreCase)]
     private static partial Regex MagnitudeWord();
 
     // Whole number token with thousands separators removed and non-ASCII digits turned into 0-9

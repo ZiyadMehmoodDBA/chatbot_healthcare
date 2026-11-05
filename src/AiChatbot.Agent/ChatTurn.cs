@@ -20,7 +20,8 @@ public sealed class ChatTurn(Actor? actor, string correlationId)
     // Model use for this question (zero when the answer came from code). Counts only; no text.
     public long InputTokens { get; set; }
     public long OutputTokens { get; set; }
-    public int ModelRounds { get; set; }
+    public int ModelRounds { get; private set; }
+    public void ModelRoundsStarted() => ModelRounds++;
     public decimal EstimatedCostUsd { get; set; }
 }
 

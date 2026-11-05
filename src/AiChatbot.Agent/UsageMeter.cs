@@ -10,6 +10,8 @@ public sealed class UsageOptions
     public long DailyTokenBudgetPerUser { get; set; }
     public int DailyModelRoundsPerUser { get; set; }
     // Estimated cost = tokens / 1000 x price. Prices are operator settings, never guessed by the code.
+    // Upper bound on one model reply, so a round has a bounded cost. 0 = provider default.
+    public int MaxOutputTokensPerRound { get; set; } = 2048;
     public decimal InputPer1kTokensUsd { get; set; }
     public decimal OutputPer1kTokensUsd { get; set; }
 }
@@ -38,6 +40,20 @@ public sealed class UsageMeter(UsageOptions? options = null, Func<DateTime>? clo
         var d = Current(userId);
         if (_o.DailyTokenBudgetPerUser > 0 && d.In + d.Out >= _o.DailyTokenBudgetPerUser) return true;
         return _o.DailyModelRoundsPerUser > 0 && d.Rounds >= _o.DailyModelRoundsPerUser;
+    }
+
+    private readonly object _gate = new();
+
+    // Atomic check-and-charge of one model round: concurrent questions cannot all pass the same remaining budget.
+    // Charged before the call so a cancelled or failed round still counts; tokens are added afterwards by Record.
+    public bool TryReserveRound(string userId)
+    {
+        lock (_gate)
+        {
+            if (OverBudget(userId)) return false;
+            Record(userId, 0, 0, 1);
+            return true;
+        }
     }
 
     public void Record(string userId, long inputTokens, long outputTokens, int rounds)
