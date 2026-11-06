@@ -58,6 +58,14 @@ public sealed class ChatAgent(
         - Get every figure from a tool. Never answer numbers from memory and never do arithmetic yourself.
         - If the dates are missing or unclear, ask one short clarifying question instead of guessing. Convert relative
           periods (last month, last 90 days) to YYYY-MM-DD using today's date. A period may not exceed 366 days.
+        - If the user already named a period (a month, a quarter, last month) or the context above gives exact dates, use them and
+          run the report. Never ask for a date range they have already given.
+        - A count of claims and a dollar amount have different placeholders. Never present an amount or charges placeholder as a
+          number of claims.
+        - Sound like a helpful colleague, not a form: lead with the answer in plain words, mention the most useful thing the
+          table shows (for example the biggest item), and end with at most one short offer of what to look at next. Use no
+          bullet list for one or two facts, and do not repeat the question back.
+        - A/R aging is a balance as of one day. If no date is given, call it with today's date; never ask for a period for it.
         - Payment reports use the posting date. You cannot choose a practice, payer filter or date basis.
         - The app shows the full table and its evidence (period, date basis, draft status, data freshness) under your
           reply. Do not copy the table. Write one to three factual sentences using the figures from the tool result.
@@ -90,6 +98,10 @@ public sealed class ChatAgent(
     };
 
     public string Model => llm.Resolve().Model;
+
+    // Scope line, note and chips for the answer just given; null when there is nothing to add
+    public Assist? AssistFor(ChatTurn turn)
+        => turn.Assist ?? (turn.Actor is { } actor ? AssistBuilder.ForReports(actor, turn.Reports) : null);
 
     // Streams text deltas. History is saved only after the stream completes,
     // so a failed or cancelled request leaves the conversation untouched.
@@ -135,6 +147,7 @@ public sealed class ChatAgent(
             {
                 turn.Trace.Add(new TraceStep("decision", reply.Kind.ToString(), "ok", Detail: reply.Reason));
                 var text = ApplyReply(conversationId, prepared.Text, reply, rcm.UtcNow);
+                if (reply.Chips is { Count: > 0 }) turn.Assist = new Assist(null, null, reply.Chips);
                 yield return text;
                 yield break;
             }
@@ -158,6 +171,13 @@ public sealed class ChatAgent(
             {
                 turn.Trace.Add(new TraceStep("decision", "Drill", "ok", Detail: drillDecision.Reason));
                 yield return await DrillAsync(conversationId, prepared.Text, drillDecision, turn, ct);
+                yield break;
+            }
+
+            if (decision is InvestigationDecision inv)
+            {
+                turn.Trace.Add(new TraceStep("decision", "Investigate", "ok", Detail: inv.Reason));
+                yield return await InvestigateAsync(conversationId, prepared.Text, inv, turn, ct);
                 yield break;
             }
 
@@ -297,17 +317,42 @@ public sealed class ChatAgent(
             finalText = NoReportReply;
         }
 
+        // True when the reply was written here, in code: it holds dates the model never saw, so the model-text checks skip it
+        var codeWritten = false;
+        // A code-written reply that holds figures: it is shown to the user but never put in the model's history
+        var figuresInReply = false;
+        // Every table came back empty (or the period is past the data): the model is not asked to describe zeros
+        if (rcmMode && turn!.Reports.Count > 0 && turn.Reports.All(AssistBuilder.IsEmpty))
+        {
+            turn.Trace.Add(new TraceStep("guard", "empty-result", "replaced", Detail: "all tables empty"));
+            finalText = AssistBuilder.EmptyReply(turn.Reports);
+            codeWritten = true;
+        }
+        // The report ran but the model hedged ("I can't provide the figures", "the placeholder is"): say it in code, from the
+        // report's own rows, so the user gets the answer in plain words and no model text is trusted for the figures
+        else if (rcmMode && turn!.Reports.Count > 0 && !codeWritten && finalText != UsageMeter.BudgetReply
+                 && (!safety.Policy.Allows(chat.Kind, DataClass.Aggregate) || AssistBuilder.IsHedge(finalText)))
+        {
+            turn.Trace.Add(new TraceStep("guard", "hedge", "replaced", Detail: !safety.Policy.Allows(chat.Kind, DataClass.Aggregate) ? "model saw placeholders only" : "model withheld figures it had"));
+            finalText = AssistBuilder.DigestReply(turn.Reports);
+            codeWritten = true;
+            figuresInReply = true;
+        }
+
         if (turn is not null && usage is not null) turn.EstimatedCostUsd = usage.EstimateCost(turn.InputTokens, turn.OutputTokens);
         turn?.Trace.Add(new TraceStep("llm", chat.Model, "ok",
             Detail: $"rounds={rounds}" + (turn is { InputTokens: > 0 } or { OutputTokens: > 0 } ? $",tokens_in={turn.InputTokens},tokens_out={turn.OutputTokens}" : "")));
 
         if (!live)
         {
-            var output = ExternalOutput(conversationId, finalText, values, shown);
+            var output = codeWritten
+                ? safety.Finalize(conversationId, finalText, new Dictionary<string, string>())
+                : ExternalOutput(conversationId, finalText, values, shown);
             if (output.Length > 0) { shownText.Append(output); yield return output; }
         }
 
-        store.AddMessages(conversationId, userMessage, new ChatMessage(ChatRole.Assistant, finalText));
+        store.AddMessages(conversationId, userMessage,
+            new ChatMessage(ChatRole.Assistant, figuresInReply ? "(The server gave the figures from the report tables.)" : finalText));
 
         if (rcmMode)
         {
@@ -417,6 +462,71 @@ public sealed class ChatAgent(
 
     // The business snapshot: each report compared across the two periods, one line per report written from its rows.
     // A report that fails is named as unavailable; the others still show.
+    private static readonly Dictionary<string, string[]> PlaybookReports = new()
+    {
+        ["collections-change"] = [ReportCatalog.InsuranceVsPatient, ReportCatalog.PaymentsByPayer, GroupedReports.PaymentsByPractice, ReportCatalog.ClaimVolume, ReportCatalog.Denials],
+        ["denials-change"] = [ReportCatalog.Denials, GroupedReports.DenialsByPayer, ReportCatalog.ClaimVolume],
+        ["ar-change"] = [ReportCatalog.InsuranceVsPatient, ReportCatalog.ClaimVolume],
+        ["payer-stopped"] = [ReportCatalog.PaymentsByPayer],
+    };
+
+    // A playbook: the server runs each approved report for both periods, calculates the movement and writes the answer.
+    private async Task<string> InvestigateAsync(Guid conversationId, string question, InvestigationDecision inv, ChatTurn turn, CancellationToken ct)
+    {
+        var book = HealthcareKnowledge.Shared.Playbook(inv.PlaybookId)!;
+        var (cur, prior) = (inv.Current, inv.Prior);
+        var actor = turn.Actor!;
+        var ids = PlaybookReports[inv.PlaybookId]
+            .Where(id => ComparisonBuilder.CanCompare(id) && ReportCatalog.Find(id) is { } r && r.AllowedRoles.Contains(actor.Role)).ToList();
+        var note = "";
+        var parts = new List<InvestigationPart>();
+        var digests = new List<ReportDigest>();
+        var failed = 0;
+        var announced = new HashSet<string>();
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var id = ids[i];
+            if (turn.OnStep is { } step && announced.Add(id)) await step($"Checking {(ReportCatalog.Find(id)?.Name ?? GroupedReports.Find(id)?.Name ?? id).ToLowerInvariant()}...");
+            ReportRequest Req(DateRange r) => new(StartDate: r.Start, EndDate: r.End, TopN: rcm!.MaxTopN);
+            var caveats = new List<string> { "Periods follow the calendar year; the fiscal calendar is not defined yet." };
+            var timer = Stopwatch.StartNew();
+            var (report, error) = await rcm!.RunComparisonAsync(turn, id, Req(cur), Req(prior), caveats, ct);
+            turn.Trace.Add(new TraceStep("tool", "Investigate:" + id, error is null ? "ok" : "error", timer.ElapsedMilliseconds,
+                report is null ? null : $"rows={report.Evidence.RowCount}"));
+            // Data may end before the default "last month": use the latest whole months the data covers and say so
+            if (report is not null && inv.DefaultedPeriod && i == 0 && report.Evidence.DataThrough is { } through && cur.End > through)
+            {
+                var latest = InvestigationPlanner.LatestFullMonths(through);
+                (cur, prior) = (latest.Current, latest.Prior);
+                note = $"The data runs through {through:yyyy-MM-dd}, so I used the latest full months instead of last month.\n\n";
+                i = -1;
+                continue;
+            }
+            var name = ReportCatalog.Find(id)?.Name ?? id;
+            parts.Add(new InvestigationPart(id, name, report));
+            if (report is null) { failed++; continue; }
+            turn.Reports.Add(report);
+            digests.Add(new ReportDigest(id, name + " (comparison)", report.Evidence.Period, report.Rows.Count, ReportDigests.Compare(report)));
+        }
+
+        string answer;
+        IReadOnlyList<Chip> chips = [];
+        if (ids.Count == 0) answer = "Your role cannot run the reports that investigation needs.";
+        else if (parts.All(p => p.Report is null)) answer = "I couldn't reach the reporting data just now, so I can't investigate. Please try again shortly.";
+        else
+        {
+            (answer, chips) = InvestigationNarrator.Build(book, cur, prior, parts, inv.PayerWords);
+            answer = note + answer + "\n\nThe tables show each step. All figures are draft until the business owner approves the reports." +
+                     (failed > 0 ? $" {failed} check(s) were unavailable and are not included." : "");
+        }
+        if (chips.Count > 0) turn.Assist = new Assist(turn.Reports.Count > 0 ? AssistBuilder.ScopeLine(actor, turn.Reports[0].Evidence) : null, null, chips);
+
+        store.AddMessages(conversationId, new ChatMessage(ChatRole.User, question),
+            new ChatMessage(ChatRole.Assistant, $"Investigated with the {book.Title} playbook ({cur.Label} vs {prior.Label}); the server gave the figures."));
+        _memory.AddTurn(conversationId, question, digests.Count > 0 ? TurnKind.Report : TurnKind.Refused, answer, digests, rcm.UtcNow);
+        return safety.Finalize(conversationId, answer, new Dictionary<string, string>());
+    }
+
     private async Task<string> SnapshotAsync(Guid conversationId, string question, SnapshotDecision s, ChatTurn turn, CancellationToken ct)
     {
         var lines = new List<string>();
@@ -560,8 +670,8 @@ public sealed class ChatAgent(
     // so the answer is replaced by a server-built listing of the real tool values.
     // Shown when the model answered a data question without running a report. Nothing from the model's text is used.
     private const string NoReportReply =
-        "I wasn't able to run a report for that, so I won't guess at figures. Please try again and include a date range, " +
-        "for example 'payers owing the most as of today' or 'denials for 2025'.";
+        "I couldn't pull figures for that one, and I won't guess. Tell me the period you want, for example " +
+        "'May' or 'last quarter', and I'll run it.";
 
     private string ExternalOutput(Guid conversationId, string modelText, Dictionary<string, string> values, List<string> shown)
     {

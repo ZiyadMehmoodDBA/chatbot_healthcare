@@ -269,7 +269,7 @@ public class DomainTests
         var client = new ScriptedClient(Text("ok"));
         var agent = Agent(client, ProviderKind.Local, Registry(new FakeExecutor()), out _);
 
-        await Ask(agent, "payments by payer and aging of balances", new ChatTurn(Manager, "c"));
+        await Ask(agent, "payments by payer and aging of balances last month", new ChatTurn(Manager, "c"));
 
         Assert.Equal(5, client.LastOptions!.Tools!.Count);
         Assert.Contains("several parts (payments and accounts receivable)", client.Rounds[0][0].Text);
@@ -301,7 +301,7 @@ public class DomainTests
         var agent = Agent(client, ProviderKind.Local, Registry(new FakeExecutor(), audit), out _);
         var turn = new ChatTurn(Manager, "corr-42");
 
-        var text = await Ask(agent, "payments by payer and aging of open balances", turn);
+        var text = await Ask(agent, "payments by payer and aging of open balances last month", turn);
 
         Assert.Equal("Top payer Acme Health (120.00); largest open balance Beta Care (155.00).", text);
         Assert.Equal(2, turn.Reports.Count);
@@ -357,7 +357,7 @@ public class DomainTests
         var agent = Agent(client, ProviderKind.Local, Registry(exec), out _);
         var turn = new ChatTurn(Manager, "c");
 
-        await Ask(agent, "show payments by payer", turn);
+        await Ask(agent, "show payments by payer last month", turn);
 
         Assert.Equal(Coordinator.MaxToolCalls, turn.Reports.Count);
         Assert.StartsWith("budget_exceeded", LastToolPayload(client)["error"]);
@@ -370,7 +370,7 @@ public class DomainTests
             Calls(Fn("a", RcmReportTools.PaymentsByPayer, ("startDate", "May"), ("endDate", "2026-05-31"))), Text("ok"));
         var agent = Agent(client, ProviderKind.Local, Registry(new FakeExecutor()), out _);
 
-        await Ask(agent, "show payments by payer", new ChatTurn(Manager, "c"));
+        await Ask(agent, "show payments by payer last month", new ChatTurn(Manager, "c"));
 
         Assert.StartsWith("invalid_arguments: startDate must be a date written YYYY-MM-DD", LastToolPayload(client)["error"]);
     }
@@ -384,7 +384,7 @@ public class DomainTests
         var agent = Agent(client, ProviderKind.Local, Registry(exec), out _);
         var turn = new ChatTurn(new Actor("u9", Roles.RcmManager, []), "c");
 
-        await Ask(agent, "show payments by payer", turn);
+        await Ask(agent, "show payments by payer last month", turn);
 
         Assert.StartsWith("forbidden", LastToolPayload(client)["error"]);
         Assert.Equal(0, exec.ReportQueries);

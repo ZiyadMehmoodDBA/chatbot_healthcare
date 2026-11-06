@@ -124,6 +124,13 @@ var chatEndpoint = app.MapPost("/api/chat", async (ChatRequest req, HttpContext 
     async Task Write(object line) =>
         await ctx.Response.WriteAsync(JsonSerializer.Serialize(line, json) + "\n", ctx.RequestAborted);
 
+    // Progress for server-run investigations: one short line per check, before the answer
+    turn.OnStep = async step =>
+    {
+        if (!streaming) { ctx.Response.ContentType = "application/x-ndjson"; streaming = true; }
+        await Write(new { step });
+    };
+
     // Report tables go to the browser straight from the report service, as their own stream lines
     var reportsSent = 0;
     async Task WriteReports()
@@ -150,6 +157,8 @@ var chatEndpoint = app.MapPost("/api/chat", async (ChatRequest req, HttpContext 
         }
         await WriteReports();
         if (!streaming) ctx.Response.ContentType = "application/x-ndjson";
+        // Scope line, empty-result note and click-to-send chips: built in code from the report evidence, no figures
+        if (agent.AssistFor(turn) is { } assist) await Write(new { assist });
         await Write(new { done = true, model = agent.Model, durationMs = started.ElapsedMilliseconds });
     }
     catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested)
@@ -178,6 +187,20 @@ var chatEndpoint = app.MapPost("/api/chat", async (ChatRequest req, HttpContext 
 });
 if (authMode == AuthSetup.ModeAzureAd) chatEndpoint.RequireAuthorization(AuthSetup.Policy);
 chatEndpoint.RequireRateLimiting("chat");
+
+// Thumbs on an answer. Rating and a fixed reason only: no free text, so nothing a user types can be stored here.
+var feedbackEndpoint = app.MapPost("/api/feedback", (FeedbackRequest req, HttpContext ctx, ILogger<Program> log) =>
+{
+    var actor = ctx.RequestServices.GetRequiredService<IActorProvider>().Current;
+    if (ActorGate.Deny(ctx, actor, ctx.RequestServices.GetRequiredService<IReportAudit>(), "feedback", "feedback") is { } denied) return denied;
+    if (!FeedbackRequest.Ratings.Contains(req.Rating)) return Results.BadRequest(new { error = "rating must be up or down" });
+    if (req.Reason is not null && !FeedbackRequest.Reasons.Contains(req.Reason)) return Results.BadRequest(new { error = "unknown reason" });
+    log.LogInformation("Feedback user={User} conversation={Conversation} rating={Rating} reason={Reason}",
+        actor!.UserId, req.ConversationId, req.Rating, req.Reason ?? "-");
+    return Results.Ok(new { saved = true });
+});
+if (authMode == AuthSetup.ModeAzureAd) feedbackEndpoint.RequireAuthorization(AuthSetup.Policy);
+feedbackEndpoint.RequireRateLimiting("chat");
 
 app.Run();
 
@@ -225,4 +248,10 @@ public sealed class AuditHealthCheck(IReportAudit audit) : Microsoft.Extensions.
             _ => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("audit writes are failing"),
         });
     }
+}
+
+public record FeedbackRequest(Guid ConversationId, string Rating, string? Reason)
+{
+    public static readonly string[] Ratings = ["up", "down"];
+    public static readonly string[] Reasons = ["wrong-figure", "not-what-i-asked", "too-slow", "unclear", "other"];
 }

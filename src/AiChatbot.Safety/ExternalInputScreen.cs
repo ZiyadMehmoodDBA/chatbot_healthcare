@@ -37,6 +37,10 @@ public static partial class ExternalInputScreen
     [GeneratedRegex(@"[0-9]{4,}")]
     private static partial Regex LongDigits();
 
+    // Only 1900-2099, only straight after a word that says "time", and never part of a longer number or a date
+    [GeneratedRegex(@"\b((?:year|in|for|of|during|since|from|to|until|through|by|fy|fiscal|q[1-4]|jan[a-z]*|feb[a-z]*|mar[a-z]*|apr[a-z]*|may|june?|july?|aug[a-z]*|sep[a-z]*|oct[a-z]*|nov[a-z]*|dec[a-z]*)\.?,?\s+)(?:19|20)[0-9]{2}(?![0-9]|[/\-.][0-9])", RegexOptions.IgnoreCase)]
+    private static partial Regex YearAfterTimeWord();
+
     [GeneratedRegex(@"(?:[0-9][\s.\-/()]*){7,}")]
     private static partial Regex PhoneLike();
 
@@ -64,6 +68,9 @@ public static partial class ExternalInputScreen
 
         var text = tokenizedText;
         foreach (var t in knownTokens) text = text.Replace(t, " ");
+
+        // A year after a time word ("in 2026", "for year 2026", "Q1 2026") is a period, not an identifier
+        text = YearAfterTimeWord().Replace(text, "$1 ");
 
         if (LongDigits().IsMatch(text) || text.Contains('@') || PhoneLike().IsMatch(text)) return false;
         if (BirthWords().IsMatch(text) || NumericDate().IsMatch(text) || MonthDay().IsMatch(text)) return false;

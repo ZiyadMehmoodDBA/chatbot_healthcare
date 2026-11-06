@@ -1,0 +1,21 @@
+{
+  "_about": "Investigation playbooks. Each lists what the server checks (only approved reports), what the data can never establish on its own, and the focused next question. No figures live here.",
+  "playbooks": [
+    { "id": "collections-change", "title": "Collections went up or down",
+      "checks": ["Insurance versus patient payments, this period against the one before", "Payments by payer, this period against the one before", "Payments by practice, this period against the one before", "Claims processed, as the volume context", "Claim status counts, as the denial context"],
+      "cannotEstablish": ["Whether payers processed claims more slowly (no payer processing dates in the reports)", "Whether payments were posted late rather than received late (posting date is the only basis used)", "Which claims a payment belongs to (payment-to-charge allocation is not validated)", "Whether a payer changed policy or stopped paying for a reason"],
+      "next": ["Compare claim submissions by payer for the same periods", "Look at claim status counts by payer for the largest-moving payers", "Open the largest-moving payer or practice month by month"] },
+    { "id": "ar-change", "title": "Insurance A/R went up",
+      "checks": ["Insurance A/R today by payer and age", "Charges and payments for the period as the flow into and out of A/R"],
+      "cannotEstablish": ["How A/R moved over time: the source keeps no history snapshots", "Which payers' balances grew: there is no prior balance to compare to", "How much of A/R is denied money: no approved source for denied dollars"],
+      "next": ["Compare payments with charges for the last two months", "See which payers hold the oldest balances", "Ask for historical A/R snapshots to be kept so movement can be measured"] },
+    { "id": "denials-change", "title": "Denials went up",
+      "checks": ["Claim status counts, this period against the one before", "Claim status counts by payer, this period against the one before"],
+      "cannotEstablish": ["Denied dollars: no approved source or definition", "Whether denials are new or older claims being re-worked", "Appeals and recoveries: no source"],
+      "next": ["Open the payer with the largest increase month by month", "Look at the reasons recorded for that payer", "Compare resubmissions for the same payer"] },
+    { "id": "payer-stopped", "title": "A payer stopped paying",
+      "checks": ["Payments by payer, this period against the one before: payers with payments before and none now", "Claim submissions by payer, to see whether claims stopped going to that payer"],
+      "cannotEstablish": ["Why the payer stopped: the reports hold no payer correspondence or processing dates", "Whether payments are only delayed rather than stopped"],
+      "next": ["Compare claim submissions to that payer", "Check claim status counts for that payer", "Contact the payer once the data shows when claims were last paid"] }
+  ]
+}

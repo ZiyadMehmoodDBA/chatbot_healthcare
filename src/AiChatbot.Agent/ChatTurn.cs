@@ -13,6 +13,13 @@ public sealed class ChatTurn(Actor? actor, string correlationId)
     public string CorrelationId { get; } = correlationId;
     public List<ReportResult> Reports { get; } = [];
 
+    // Progress lines for long server-run work (an investigation); the host streams each to the screen as it happens
+    public Func<string, Task>? OnStep { get; set; }
+
+    // Scope line, note and chips for the screen, built in code (see AssistBuilder). Set by a clarifying question, or
+    // derived from the reports at the end of the turn.
+    public Conversation.Assist? Assist { get; set; }
+
     // One line per decision or tool call, for the structured trace the host logs under CorrelationId
     public List<TraceStep> Trace { get; } = [];
     public int ToolCalls { get; set; }

@@ -29,8 +29,17 @@ export interface ReportResult {
   evidence: ReportEvidence;
 }
 
+// Built by the server from the report evidence: a scope line, a note for empty results, and click-to-send replies
+export interface Assist {
+  scope?: string | null;
+  note?: string | null;
+  chips: { label: string; send: string }[];
+}
+
 export type StreamEvent =
   | { type: 'delta'; text: string }
+  | { type: 'step'; text: string }
+  | { type: 'assist'; assist: Assist }
   | { type: 'report'; report: ReportResult }
   | { type: 'done'; model?: string; durationMs?: number }
   | { type: 'error'; message: string };
@@ -40,6 +49,15 @@ export type StreamEvent =
 @Injectable({ providedIn: 'root' })
 export class ChatService {
   private readonly auth = inject(AuthService);
+
+  async feedback(conversationId: string, rating: 'up' | 'down', reason?: string): Promise<void> {
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await this.auth.headers()) },
+      body: JSON.stringify({ conversationId, rating, reason }),
+    });
+    if (!res.ok) throw new Error(`Feedback failed with status ${res.status}`);
+  }
 
   async *stream(
     prompt: string,
@@ -70,15 +88,19 @@ export class ChatService {
       for (const raw of lines) {
         if (!raw.trim()) continue;
         const line = JSON.parse(raw) as {
+          step?: string;
           delta?: string;
           report?: ReportResult;
+          assist?: Assist;
           done?: boolean;
           model?: string;
           durationMs?: number;
           error?: string;
         };
-        if (line.delta) yield { type: 'delta', text: line.delta };
+        if (line.step) yield { type: 'step', text: line.step };
+        else if (line.delta) yield { type: 'delta', text: line.delta };
         else if (line.report) yield { type: 'report', report: line.report };
+        else if (line.assist) yield { type: 'assist', assist: line.assist };
         else if (line.done) yield { type: 'done', model: line.model, durationMs: line.durationMs };
         else if (line.error) yield { type: 'error', message: line.error };
       }

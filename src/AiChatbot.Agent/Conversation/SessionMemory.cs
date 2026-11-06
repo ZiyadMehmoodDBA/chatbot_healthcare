@@ -19,6 +19,8 @@ public enum PendingKind
     PatientAccount,
     // Waiting for yes/no: "do you mean the account we just looked at?"
     ConfirmAccount,
+    // Waiting for a period; Suggested holds the original (tokenized) question to run once it is given
+    ReportPeriod,
 }
 
 // Ask is the question the bot put to the user, kept so it can be repeated after a side question.

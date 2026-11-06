@@ -125,7 +125,10 @@ public class RcmChatTests
         var payload = ToolPayload(client);
         Assert.Equal("{PAYER_TOP_COMBINED}", payload["PAYER_TOP_COMBINED"]);
         Assert.DoesNotContain(client.Rounds[^1], m => m.Text.Contains("120.00") || m.Text.Contains("Acme"));
-        Assert.Equal("The top payer is Acme Health with 120.00.", text);
+        // The model saw placeholders only, so the figures are written by the server from the table, not from model wording
+        Assert.StartsWith("Here's what the data shows.", text);
+        Assert.Contains("Acme Health", text);
+        Assert.Contains("120.00", text);
     }
 
     [Fact]
@@ -148,7 +151,7 @@ public class RcmChatTests
         var client = new ScriptedClient(
             Call(RcmReportTools.PaymentsByPayer, May),
             Text("For 2026-05-01 to 2026-05-31 (the last 6 months), the top payer is {PAYER_TOP_NAME} with {PAYER_TOP_COMBINED}."));
-        var agent = Make(client, ProviderKind.External, out _, out _);
+        var agent = Make(client, ProviderKind.External, out _, out _, allowAggregate: true);
 
         var text = await Run(agent, Guid.NewGuid(), "top payers over the last 6 months", new ChatTurn(Manager, "c"));
 
@@ -176,7 +179,7 @@ public class RcmChatTests
         var agent = Make(client, ProviderKind.Local, out _, out var exec);
         var turn = new ChatTurn(Manager, "c");
 
-        await Run(agent, Guid.NewGuid(), "compare insurance and patient payments", turn);
+        await Run(agent, Guid.NewGuid(), "insurance and patient payments last month", turn);
 
         Assert.Contains("startDate and endDate are required", ToolPayload(client)["error"]);
         Assert.Empty(turn.Reports);

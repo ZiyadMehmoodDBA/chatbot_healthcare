@@ -63,15 +63,35 @@ public static class MemoryAnswers
         return "Here it is again:\n" + t.Answer + tail;
     }
 
+    // Example questions per area, shown with the help answer. Only areas the role can use are listed; no years (the
+    // input screen blocks bare numbers) and no names. Add an example here when an area gets a new report.
+    private static readonly Dictionary<string, string[]> Examples = new()
+    {
+        ["payments"] = ["How much came from insurance versus patients in May?", "Which payers pay us the most last month?", "Payments by practice last quarter", "Payments by month year to date"],
+        ["accounts receivable"] = ["How much is outstanding in A/R?", "How old is our A/R?", "How much A/R is over 90 days?", "Which payers owe us the most?"],
+        ["claims"] = ["How many claims did we process in May?", "Which providers bill the most last month?", "Claims by practice last quarter"],
+        ["denials"] = ["How many claims were denied in April?", "Why are claims being denied?", "Denials by payer last quarter"],
+        ["charges"] = ["Charges and adjustments by practice last month", "Charges by month year to date"],
+        ["submissions"] = ["How many claims did we submit last week?", "How many claims were resubmitted in May?", "Top payment remark codes last month"],
+    };
+
     public static string Capabilities(IReadOnlyList<IDomainModule> modules, bool patientLookup)
     {
-        var sb = new StringBuilder("I answer billing and revenue cycle questions from the approved reports:\n");
-        foreach (var m in modules) sb.AppendLine($"- {Capitalize(m.Description)}");
+        var sb = new StringBuilder("Here's what you can ask me. I answer billing and revenue cycle questions from the approved reports:\n");
+        foreach (var m in modules)
+        {
+            sb.AppendLine($"- {Capitalize(m.Description)}");
+            if (Examples.TryGetValue(m.Domain, out var ex))
+                sb.AppendLine("  e.g. " + string.Join(" / ", ex.Select(e => $"\"{e}\"")));
+        }
+        sb.AppendLine("- Comparisons and the big picture: \"Compare payments this month vs last month\", \"How is the business doing?\"");
+        sb.AppendLine("- Follow-ups: \"same by payer\", \"same for April\", \"drill into row 2\" (or the Month by month button)");
         if (patientLookup)
             sb.AppendLine("- One patient account's billing balance (give me an account number, like 'account 12345'; I can't search by name)");
-        sb.AppendLine("You can also ask about our conversation (\"what was my first question?\", \"summarize our conversation\", " +
+        sb.AppendLine("Name a period when you ask (last month, May, Q1, year to date); if you don't, I'll ask. " +
+                      "You can also ask about our conversation (\"what was my first question?\", \"summarize our conversation\", " +
                       "\"summarize that\") or say \"start over\".");
-        sb.Append("Reports are drafts until the business owner approves them.");
+        sb.Append("Reports are drafts until the business owner approves them. Things I can't answer yet, like readmission rates or a collection rate, I'll tell you so rather than guess.");
         return sb.ToString();
     }
 

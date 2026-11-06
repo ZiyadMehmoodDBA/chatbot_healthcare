@@ -57,6 +57,8 @@ public partial class ConversationTests
         public List<ReportQuery> Queries { get; } = [];
         public bool HasPatient { get; set; } = true;
         public bool Fail { get; set; }
+        // Every report query returns no rows (the freshness probe still answers)
+        public bool Empty { get; set; }
         public string[] FailViews { get; set; } = [];
 
         public Task<IReadOnlyList<object?[]>> ExecuteAsync(ReportQuery q, CancellationToken ct)
@@ -66,6 +68,7 @@ public partial class ConversationTests
                 return Rows([new DateTime(2026, 6, 5)]);
             if (FailViews.Any(v => q.Sql.Contains(v))) throw new ReportException(ReportErrorKind.Unavailable, "The reporting data source is unavailable");
             Queries.Add(q);
+            if (Empty) return Rows();
             var top = q.Sql.Contains("TOP (@");
             if (q.Sql.Contains("CONVERT(char(7)"))
                 return Rows(["2026-05", 3L, 100m, 20m, 120m]);
@@ -174,6 +177,12 @@ public partial class ConversationTests
     [InlineData("never mind", MetaIntent.Cancel)]
     [InlineData("what can you do", MetaIntent.Capabilities)]
     [InlineData("help", MetaIntent.Capabilities)]
+    [InlineData("What questions i can ask from you?", MetaIntent.Capabilities)]
+    [InlineData("what questions can I ask", MetaIntent.Capabilities)]
+    [InlineData("what can I ask you", MetaIntent.Capabilities)]
+    [InlineData("what kind of questions should I ask", MetaIntent.Capabilities)]
+    [InlineData("what do you know", MetaIntent.Capabilities)]
+    [InlineData("give me examples of questions", MetaIntent.Capabilities)]
     public void Conversation_phrases_are_recognised(string text, MetaIntent expected)
         => Assert.Equal(expected, ConversationIntents.Classify(text, hasReportWords: false));
 

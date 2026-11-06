@@ -57,7 +57,7 @@ public sealed class RcmReportTools
             new ReportModule(
                 "payments",
                 "payments received (insurance versus patient, and by payer)",
-                ["payment", "payments", "paid", "collect", "collected", "collection", "collections", "remittance", "deposit", "insurance vs patient", "insurance versus patient"],
+                ["payment", "payments", "paid", "collect", "collected", "collection", "collections", "remittance", "deposit", "insurance vs patient", "insurance versus patient", "insurance vs patients", "insurance versus patients", "insurance and patient", "insurance and patients"],
                 [
                     new(Spec(InsuranceVsPatient, "payments", ReportCatalog.InsuranceVsPatient,
                         "Insurance payments versus patient payments for a posting-date period, with each share of the combined total.",
@@ -88,7 +88,7 @@ public sealed class RcmReportTools
                 "claims",
                 "claim volume by practice and provider, and days to bill",
                 ["claim volume", "claims volume", "how many claims", "number of claims", "claim count", "claims by provider", "claims by practice",
-                 "claims submitted", "days to bill", "time to bill", "billing lag", "billing speed", "slow to bill"],
+                 "claims submitted", "claims processed", "claims did we process", "which providers", "top providers", "providers bill", "bill the most", "days to bill", "time to bill", "billing lag", "billing speed", "slow to bill"],
                 [
                     new(Spec(ClaimVolume, "claims", ReportCatalog.ClaimVolume,
                         "Unique claims, claim lines and charges by practice and rendering provider for a date-of-service period.",

@@ -9,6 +9,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Questions\question-catalogue.json" LogicalName="question-catalogue.json" />
     <EmbeddedResource Include="Registry\metric-registry.json" LogicalName="metric-registry.json" />
+    <EmbeddedResource Include="Knowledge\glossary.json" LogicalName="glossary.json" />
+    <EmbeddedResource Include="Knowledge\playbooks.json" LogicalName="playbooks.json" />
   </ItemGroup>
 
   <ItemGroup>

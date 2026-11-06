@@ -22,6 +22,9 @@
               }
             </div>
           }
+          @if (m.assist?.note) {
+            <p class="note">{{ m.assist?.note }}</p>
+          }
           @for (r of m.reports ?? []; track $index) {
             <article class="report" [attr.aria-label]="r.evidence.reportId">
               <header class="report-head">
@@ -31,6 +34,20 @@
                   <button type="button" class="link" (click)="download(r)">Download CSV</button>
                 }
               </header>
+              @if (bars(r).length) {
+                <details class="chart">
+                  <summary>Chart: {{ barTitle(r) }}</summary>
+                  <ul>
+                    @for (b of bars(r); track $index) {
+                      <li>
+                        <span class="lbl">{{ b.label }}</span>
+                        <span class="bar"><span class="fill" [style.width.%]="b.pct"></span></span>
+                        <span class="val">{{ b.shown }}</span>
+                      </li>
+                    }
+                  </ul>
+                </details>
+              }
               <div class="table-wrap">
                 <table>
                   <thead>
@@ -81,6 +98,31 @@
               }
             </article>
           }
+          @if (m.assist?.scope) {
+            <p class="scope" aria-label="Scope">{{ m.assist?.scope }}</p>
+          }
+          @if (m.role === 'bot' && m.content && !streaming()) {
+            <div class="rate" role="group" aria-label="Was this helpful?">
+              @if (m.feedback === 'asking') {
+                <span>What was wrong?</span>
+                @for (r of reasons; track r.key) {
+                  <button type="button" (click)="rateReason($index, r.key)">{{ r.label }}</button>
+                }
+              } @else if (m.feedback) {
+                <span>Thanks for the feedback.</span>
+              } @else {
+                <button type="button" aria-label="Helpful" (click)="rate($index, 'up')">&#128077;</button>
+                <button type="button" aria-label="Not helpful" (click)="rate($index, 'down')">&#128078;</button>
+              }
+            </div>
+          }
+          @if (m.assist?.chips?.length && chipsOpen(m)) {
+            <div class="chips" role="group" aria-label="Suggested replies">
+              @for (c of m.assist?.chips ?? []; track c.label) {
+                <button type="button" class="suggest" (click)="pick(c.send)">{{ c.label }}</button>
+              }
+            </div>
+          }
         </div>
       </div>
     }
@@ -90,6 +132,9 @@
     @if (loading()) {
       <div class="row">
         <div class="bubble typing"><span></span><span></span><span></span></div>
+        @if (step()) {
+          <span class="scope" aria-live="polite">{{ step() }}</span>
+        }
       </div>
     }
     @if (error()) {

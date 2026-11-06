@@ -1,6 +1,9 @@
 {
   "_about": "Golden routing set. Each case: role, question, expected plan kind and domains. Add a case for every wrong route found in use. Review changes here like code.",
   "cases": [
+    { "q": "which providers bill the most in May", "role": "RcmManager", "kind": "Single", "domains": ["claims"] },
+    { "q": "how many claims did we process in May", "role": "RcmManager", "kind": "Single", "domains": ["claims"] },
+    { "q": "how much came from insurance versus patients", "role": "RcmManager", "kind": "Single", "domains": ["payments"] },
     { "q": "show charges and adjustments by practice for last month", "role": "RcmManager", "kind": "Single", "domains": ["charges"] },
     { "q": "what were our write offs by month this year", "role": "Executive", "kind": "Single", "domains": ["charges"] },
     { "q": "show payments by payer for last month", "role": "RcmManager", "kind": "Single", "domains": ["payments"] },

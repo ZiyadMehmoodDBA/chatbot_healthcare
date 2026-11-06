@@ -16,7 +16,8 @@ public sealed record ReplyDecision(
     string Reason,
     PendingAction Pending = PendingAction.Keep,
     PendingQuestion? NewPending = null,
-    bool ResetContext = false) : Decision(Reason);
+    bool ResetContext = false,
+    IReadOnlyList<Chip>? Chips = null) : Decision(Reason);
 
 // Look up one patient account. The server does it, not the model, so no patient value can reach a model.
 public sealed record PatientDecision(string Token, long Account, bool SummaryOnly, string Reason) : Decision(Reason);
@@ -40,12 +41,22 @@ public static partial class DecisionEngine
         "Which patient account should I look up? Give me the account number, for example 'account 12345'. " +
         "I can't search by patient name. I'll show the claim lines and totals; say 'summary' for totals only.";
 
+    // Words people type for reports that are not module keywords, so a slip in them still routes
+    private static readonly string[] TypoWords =
+    [
+        "collect", "collected", "collections", "payments", "insurance", "patient", "patients", "denials", "denied", "claims", "payers",
+        "practice", "practices", "provider", "providers", "receivable", "submissions", "resubmissions", "charges", "adjustments",
+        "compare", "summary", "balance", "decrease", "decreased", "increase", "increased", "january", "february", "march", "april",
+        "august", "september", "october", "november", "december", "quarter", "yesterday", "outstanding", "aging", "reasons", "versus",
+    ];
+
     public static Decision Decide(
         Actor actor, string text, SessionSnapshot session, IReadOnlyList<IDomainModule> modules,
         ITokenizationService tokens, Guid conversationId, DateOnly? today = null, int maxTopN = 100)
     {
         var day = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var allowed = modules.Where(m => m.Allows(actor)).ToList();
+        text = TypoFixer.Fix(text, modules.SelectMany(m => m.Keywords).Concat(TypoWords));
         var lower = text.ToLowerInvariant();
         var hasReportWords = allowed.Any(m => m.Keywords.Any(k => Coordinator.HasWord(lower, k)));
         var accounts = TokenRx().Matches(text).Select(m => m.Value).Distinct().ToList();
@@ -107,6 +118,30 @@ public static partial class DecisionEngine
                         return Ask("I can't look patients up by name or other details. Please give the account number, for example 'account 12345'.",
                             PendingKind.PatientAccount, "pending: reply was not an account number");
                     break;
+
+                case PendingKind.ReportPeriod when pending.Suggested is { } original:
+                    // The reply names a period: run the original question with it, as if it had been asked in one message
+                    // A bare month ("May", "March") is only a month in context, so try it after "in" too
+                    var periodReply = ClarifyPlanner.HasPeriod(text, day) ? text
+                        : ClarifyPlanner.HasPeriod($"in {text}", day) && Words(text) <= 3 ? $"in {text}" : null;
+                    if (periodReply is not null)
+                    {
+                        var joined = $"{original} {periodReply}";
+                        var next = Decide(actor, joined, session with { Pending = null }, modules, tokens, conversationId, day, maxTopN);
+                        // The model sees only the reply, so tell it the full question it is answering
+                        return next is ModelDecision m
+                            ? m with { Context = $"{m.Context} The user is answering your question about the period. Their full question is: \"{joined}\"".Trim() }
+                            : next;
+                    }
+                    // A short reply with no period and no report words ("by payer", "ok") keeps the question open
+                    if (!hasReportWords && Words(text) <= 4)
+                        return new ReplyDecision(pending.Ask, TurnKind.Clarification, "pending: still no period",
+                            PendingAction.Set, pending, Chips: AssistBuilder.PeriodChips);
+                    // "by payer" answers the split but not the period: remember it and ask for the period again
+                    if (Words(text) <= 4 && Regex.IsMatch(lower, @"(?<![a-z])by (payer|practice|month)s?(?![a-z])"))
+                        return new ReplyDecision(pending.Ask, TurnKind.Clarification, "pending: split noted, no period",
+                            PendingAction.Set, pending with { Suggested = $"{original} {text}" }, Chips: AssistBuilder.PeriodChips);
+                    break; // a new question
             }
         }
 
@@ -138,11 +173,31 @@ public static partial class DecisionEngine
         // 4b. "drill into row 3": the month-by-month view of one payer, practice or provider from the last table
         if (DrillPlanner.Plan(text, session, maxTopN) is { } drill) return drill;
 
+        // 4c. Only a period ("May"): continue the last report with it, or ask which report. Never left to the model,
+        // which would guess the year and revive a question the user had dropped.
+        if (ClarifyPlanner.PeriodOnly(text, hasReportWords, day) is { } phrase)
+            return session.LastReport is not null
+                ? Decide(actor, $"same for {phrase}", session, modules, tokens, conversationId, day, maxTopN)
+                : ClarifyPlanner.AskReportFor(phrase);
+
+        // 5-. Two reports could answer: ask which, with chips, before anything runs
+        if (ClarifyPlanner.Ambiguous(text) is { } ambiguous) return ambiguous;
+
+        // 5-. "What is a write-off?": the glossary answers in code. Questions about our own figures are not definitions.
+        if (HealthcareKnowledge.Shared.Define(text) is { } term)
+            return new ReplyDecision(HealthcareKnowledge.Explain(term), TurnKind.Memory, "glossary: " + term.Term);
+
+        // 5-. "Why did collections drop?": a playbook the server runs, no model
+        if (InvestigationPlanner.Plan(text, actor, day) is { } investigate) return investigate;
+
         // 5a. Business snapshot ("how are we doing"): the main reports, this period against the one before
         if (SnapshotPlanner.Plan(text, actor, day, maxTopN) is { } snapshot) return snapshot;
 
         // 5. Period comparison: two runs of one report, decided and run by the server
         if (ComparePlanner.Plan(text, plan, day, maxTopN) is { } compare) return compare;
+
+        // 5b. No period named: ask for it (and offer a split) instead of guessing
+        if (ClarifyPlanner.Plan(text, plan, session, day) is { } clarify) return clarify;
 
         // 6. Report questions
         return new ModelDecision(plan, ConversationIntents.WantsBrief(text),

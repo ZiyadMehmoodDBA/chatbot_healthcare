@@ -51,7 +51,7 @@ public static partial class ConversationIntents
     [GeneratedRegex(@"\b(?:in\s+short|short\s+version|shorter|tl;?dr|in\s+a\s+nutshell|in\s+brief|briefly|one\s+line|one\s+sentence|quick\s+summary|just\s+the\s+summary|key\s+(?:points|takeaways?)|bottom\s+line|summary\s+please|give\s+me\s+(?:a|the)\s+summary|what\s+does\s+(?:that|it)\s+mean)\b", RegexOptions.IgnoreCase)]
     private static partial Regex BriefRx();
 
-    [GeneratedRegex(@"^\s*(?:help|help\s+me)\s*[.?!]?\s*$|\bwhat\s+can\s+you\s+(?:do|help)\b|\bwhat\s+do\s+you\s+do\b|\bhow\s+can\s+you\s+help\b|\bwhat\s+(?:reports|questions)\s+(?:can|do)\s+(?:you|i)\b|\byour\s+capabilities\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(?:help|help\s+me)\s*[.?!]?\s*$|\bwhat\s+can\s+you\s+(?:do|help)\b|\bwhat\s+do\s+you\s+do\b|\bhow\s+can\s+you\s+help\b|\bwhat\s+(?:kinds?\s+of\s+)?(?:reports|questions)\s+(?:i\s+)?(?:can|could|should|may)\s+(?:i\s+)?ask\b|\bwhat\s+(?:can|could|should|may)\s+i\s+ask\b|\bwhat\s+do\s+you\s+know\b|\bexamples?\s+of\s+(?:questions|what)\b|\bwhat\s+(?:reports|questions)\s+(?:can|do)\s+(?:you|i)\b|\byour\s+capabilities\b", RegexOptions.IgnoreCase)]
     private static partial Regex CapabilitiesRx();
 
     [GeneratedRegex(@"^\s*#?\s*([0-9]{4,12})\s*$")]

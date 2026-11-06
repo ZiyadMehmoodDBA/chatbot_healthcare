@@ -27,6 +27,8 @@ public sealed class ReportServiceOptions
     public int MaxRangeDays { get; set; } = 366;
     public int DefaultTopN { get; set; } = 10;
     public int MaxTopN { get; set; } = 100;
+    // Rows built from fewer claims than this show their keys but no figures (0 = off). The threshold is a privacy-owner decision.
+    public int SmallCellMin { get; set; }
 }
 
 public interface IReportExecutor
@@ -200,6 +202,8 @@ public sealed class ReportBroker(
             var rows = ShapeAll(def.Id, raw.Take(query.MaxRows).ToList(), extraRows);
             var through = await DataThroughAsync(def.Id, practices, ct);
             var caveats = def.Caveats.ToList();
+            if (SmallCells.Suppress(def, rows, options.SmallCellMin) is { } hidden)
+                caveats.Add($"{hidden} row(s) built from fewer than {options.SmallCellMin} claims show no figures, to protect small groups.");
             if (through is { } t && periodEnd is { } pe && pe > t)
                 caveats.Insert(0, $"The source data ends {t:yyyy-MM-dd}, before the end of the requested period; later activity is not included.");
             if (truncated && def.Id == ReportCatalog.PatientBilling)

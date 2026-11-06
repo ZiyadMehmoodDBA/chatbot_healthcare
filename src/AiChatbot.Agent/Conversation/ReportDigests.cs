@@ -34,7 +34,8 @@ public static class ReportDigests
                        $"listed total {Money(rows.Sum(x => Dec(x[5])))}.";
             case ReportCatalog.InsuranceAging:
                 return $"{p}: {Count(rows.Count, "payer")} with open balances; largest is {Text(rows[0][1])} at {Money(rows[0][9])}; " +
-                       $"listed total {Money(rows.Sum(x => Dec(x[9])))}.";
+                       $"listed total {Money(rows.Sum(x => Dec(x[9])))}, of which over 90 days {Money(rows.Sum(x => Dec(x[6]) + Dec(x[7])))} " +
+                       $"(over 120 days {Money(rows.Sum(x => Dec(x[7])))}) and no billed date {Money(rows.Sum(x => Dec(x[8])))}.";
             case ReportCatalog.ClaimVolume:
                 return $"{p}: {Count(rows.Count, "provider row")}; {Num(rows.Sum(x => Long(x[3])))} claims and " +
                        $"{Money(rows.Sum(x => Dec(x[5])))} charges listed; busiest is {Text(rows[0][2])} with {Num(rows[0][3])} claims.";
@@ -58,8 +59,13 @@ public static class ReportDigests
                     var label = string.Join(" / ", Enumerable.Range(0, grouped.Groups.Count).Select(i => Text(rows[0][i])));
                     var total = rows.Sum(x => Dec(x[at]));
                     var name = grouped.Measures[mi].Label.ToLowerInvariant();
-                    return $"{p}: {Count(rows.Count, "row")}; first is {label} with {(money ? Money(rows[0][at]) : Num(rows[0][at]))} {name}; " +
-                           $"listed total {(money ? Money(total) : Num(total))}.";
+                    // Every count and amount, each with its own label, so a figure is never read as the wrong thing
+                    var all = string.Join(", ", grouped.Measures.Select((m, i) => (m, i))
+                        .Where(x => x.m.Type is ColumnType.Integer or ColumnType.Money)
+                        .Select(x => $"{(x.m.Type == ColumnType.Money ? Money(rows.Sum(r => Dec(r[grouped.Groups.Count + x.i]))) : Num(rows.Sum(r => Dec(r[grouped.Groups.Count + x.i]))))} {x.m.Label.ToLowerInvariant()}"));
+                    return all.Length > 0
+                        ? $"{p}: {Count(rows.Count, "row")}; first is {label} with {(money ? Money(rows[0][at]) : Num(rows[0][at]))} {name}; listed totals: {all}."
+                        : $"{p}: {Count(rows.Count, "row")}; first is {label}.";
                 }
                 return $"{p}: {Count(rows.Count, "row")}.";
         }

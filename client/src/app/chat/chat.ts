@@ -1,7 +1,7 @@
 import { Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ChatService, ReportColumn, ReportResult } from '../core/chat.service';
+import { Assist, ChatService, ReportColumn, ReportResult } from '../core/chat.service';
 import { SettingsDialog } from '../settings/settings-dialog';
 
 interface Message {
@@ -10,6 +10,8 @@ interface Message {
   model?: string;
   durationMs?: number;
   reports?: ReportResult[];
+  assist?: Assist;
+  feedback?: 'up' | 'down' | 'asking';
 }
 
 // Tables that can be opened month by month, and the column holding each row's code. The server holds the real rule
@@ -42,7 +44,15 @@ export class Chat {
   // True from request start until the stream ends or is stopped
   protected readonly streaming = signal(false);
   protected readonly error = signal('');
+  // Latest progress line from a server-run investigation, shown beside the typing dots
+  protected readonly step = signal('');
   protected draft = '';
+  protected readonly reasons = [
+    { key: 'wrong-figure', label: 'Wrong figure' },
+    { key: 'not-what-i-asked', label: 'Not what I asked' },
+    { key: 'unclear', label: 'Unclear' },
+    { key: 'other', label: 'Other' },
+  ];
 
   // One id per page load
   private readonly conversationId = crypto.randomUUID();
@@ -92,6 +102,46 @@ export class Chat {
     return at >= 0 && /^[0-9]+$/.test(String(row[at] ?? ''));
   }
 
+  // Only the newest answer offers chips: an old suggestion would answer a question that is no longer open
+  protected chipsOpen(m: Message): boolean {
+    const last = this.messages().filter((x) => x.role === 'bot').at(-1);
+    return m === last && !this.loading() && !this.streaming();
+  }
+
+  // A chip posts its text as the next message, exactly as if typed
+  protected pick(text: string) {
+    this.draft = text;
+    void this.send();
+  }
+
+  // Thumbs under an answer. A thumbs-down asks for one fixed reason; nothing typed is sent.
+  protected rate(index: number, rating: 'up' | 'down') {
+    this.messages.update((ms) => ms.map((m, i) => (i === index ? { ...m, feedback: rating === 'down' ? 'asking' : 'up' } : m)));
+    if (rating === 'up') void this.chat.feedback(this.conversationId, 'up').catch(() => undefined);
+  }
+
+  protected rateReason(index: number, reason: string) {
+    this.messages.update((ms) => ms.map((m, i) => (i === index ? { ...m, feedback: 'down' } : m)));
+    void this.chat.feedback(this.conversationId, 'down', reason).catch(() => undefined);
+  }
+
+  // A bar chart of the first measure (up to 12 rows), drawn only from the table's own cells. Plain CSS bars with the
+  // value printed on each, so nothing is conveyed by colour alone.
+  protected bars(r: ReportResult): { label: string; value: number; shown: string; pct: number }[] {
+    const isMeasure = (c: ReportColumn, i: number) =>
+      this.isNumeric(c) && !/(Prior|Change|ChangePct)$/.test(c.name) && c.type !== 'Percent' && i >= 0;
+    const m = r.columns.findIndex((c, i) => isMeasure(c, i));
+    const k = r.columns.findIndex((c) => !this.isNumeric(c));
+    if (m < 0 || k < 0 || r.rows.length < 2) return [];
+    const rows = r.rows.slice(0, 12).map((row) => ({ label: String(row[k] ?? ''), value: Number(row[m] ?? 0) }));
+    const max = Math.max(...rows.map((x) => Math.abs(x.value)), 1);
+    return rows.map((x) => ({ ...x, shown: this.cell(r.columns[m], x.value), pct: Math.round((Math.abs(x.value) / max) * 100) }));
+  }
+
+  protected barTitle(r: ReportResult): string {
+    return r.columns.find((c, i) => this.isNumeric(c) && !/(Prior|Change|ChangePct)$/.test(c.name) && c.type !== 'Percent' && i >= 0)?.label ?? '';
+  }
+
   protected drill(rowNumber: number) {
     this.draft = `drill into row ${rowNumber}`;
     void this.send();
@@ -130,6 +180,7 @@ export class Chat {
 
     this.messages.update((m) => [...m, { role: 'user', content: prompt }]);
     this.error.set('');
+    this.step.set('');
     this.loading.set(true);
     this.streaming.set(true);
     const controller = new AbortController();
@@ -162,6 +213,10 @@ export class Chat {
     try {
       let info: { model?: string; durationMs?: number } | null = null;
       for await (const ev of this.chat.stream(prompt, this.conversationId, controller.signal)) {
+        if (ev.type === 'step') {
+          this.step.set(ev.text);
+          continue;
+        }
         if (!bubbleShown) {
           this.messages.update((m) => [...m, { role: 'bot', content: '' }]);
           bubbleShown = true;
@@ -171,6 +226,7 @@ export class Chat {
           this.loading.set(false);
           patchLast((m) => ({ ...m, reports: [...(m.reports ?? []), ev.report] }));
         }
+        else if (ev.type === 'assist') patchLast((m) => ({ ...m, assist: ev.assist }));
         else if (ev.type === 'done') info = { model: ev.model, durationMs: ev.durationMs };
         else this.error.set(ev.message); // mid-stream failure: keep partial text
       }

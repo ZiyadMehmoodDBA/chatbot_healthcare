@@ -7,3 +7,9 @@ appsettings.*.local.json
 settings.json
 database-settings.json
 logs/
+
+# Test run output (contains report data)
+test-logs/*.log
+test-logs/*.txt
+test-logs/run-*/
+testcases/results/
