@@ -28,6 +28,8 @@ public class AssistTests
     [InlineData("lookup 12345")]
     [InlineData("payments in 20267")]
     [InlineData("call 555 123 4567")]
+    [InlineData("payments in 1975")]  // outside any reporting period
+    [InlineData("payments for 2099")]
     [InlineData("born in 1980")] // a birth word still blocks
     [InlineData("patient 1980-05-02")]
     public void Other_numbers_are_still_blocked(string text)

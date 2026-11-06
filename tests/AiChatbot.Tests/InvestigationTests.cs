@@ -263,4 +263,20 @@ public class ShortTypoAndSmallCellTests
     [Fact]
     public void Patient_lookup_is_never_suppressed()
         => Assert.Null(SmallCells.Suppress(Def(ReportCatalog.PatientBilling), new List<IReadOnlyList<object?>>(), 11));
+
+    [Fact]
+    public void One_hidden_row_also_hides_the_smallest_visible_row()
+    {
+        var def = Def(ReportCatalog.PaymentsByPayer);
+        var cols = def.Columns.Select(c => c.Name).ToList();
+        object?[] Row(string name, decimal n) => def.Columns.Select(c => c.Type == ColumnType.Text ? (object?)name : c.Name == "claimCount" ? n : 5m).ToArray();
+        var rows = new List<IReadOnlyList<object?>> { Row("A", 3), Row("B", 40), Row("C", 90) };
+
+        Assert.Equal(2, SmallCells.Suppress(def, rows, 11));
+
+        var ci = cols.IndexOf("claimCount");
+        Assert.Null(rows[0][ci]);
+        Assert.Null(rows[1][ci]);   // next smallest hidden as well
+        Assert.Equal(90m, rows[2][ci]);
+    }
 }

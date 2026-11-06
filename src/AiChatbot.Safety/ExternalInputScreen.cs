@@ -37,8 +37,8 @@ public static partial class ExternalInputScreen
     [GeneratedRegex(@"[0-9]{4,}")]
     private static partial Regex LongDigits();
 
-    // Only 1900-2099, only straight after a word that says "time", and never part of a longer number or a date
-    [GeneratedRegex(@"\b((?:year|in|for|of|during|since|from|to|until|through|by|fy|fiscal|q[1-4]|jan[a-z]*|feb[a-z]*|mar[a-z]*|apr[a-z]*|may|june?|july?|aug[a-z]*|sep[a-z]*|oct[a-z]*|nov[a-z]*|dec[a-z]*)\.?,?\s+)(?:19|20)[0-9]{2}(?![0-9]|[/\-.][0-9])", RegexOptions.IgnoreCase)]
+    // Only 2015-2035 (a reporting period, never a plausible birth year), only straight after a word that says "time", and never part of a longer number or a date
+    [GeneratedRegex(@"\b((?:year|in|for|of|during|since|from|to|until|through|by|fy|fiscal|q[1-4]|jan[a-z]*|feb[a-z]*|mar[a-z]*|apr[a-z]*|may|june?|july?|aug[a-z]*|sep[a-z]*|oct[a-z]*|nov[a-z]*|dec[a-z]*)\.?,?\s+)20(?:1[5-9]|2[0-9]|3[0-5])(?![0-9]|[/\-.][0-9])", RegexOptions.IgnoreCase)]
     private static partial Regex YearAfterTimeWord();
 
     [GeneratedRegex(@"(?:[0-9][\s.\-/()]*){7,}")]

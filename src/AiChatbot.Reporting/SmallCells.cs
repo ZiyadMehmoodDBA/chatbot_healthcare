@@ -26,6 +26,22 @@ public static class SmallCells
             rows[r] = copy;
             hidden++;
         }
+        // Complementary disclosure: one hidden row can be worked out from a total or a neighbouring figure, so hide the
+        // smallest visible row too. Two or more hidden rows already protect each other.
+        if (hidden == 1)
+        {
+            var next = Enumerable.Range(0, rows.Count)
+                .Where(r => figures.Any(i => rows[r][i] is not null) && counts.Any(i => rows[r][i] is { } v && Convert.ToDecimal(v) > 0))
+                .OrderBy(r => counts.Where(i => rows[r][i] is not null).Select(i => Convert.ToDecimal(rows[r][i])).DefaultIfEmpty(decimal.MaxValue).Min())
+                .Cast<int?>().FirstOrDefault();
+            if (next is { } n)
+            {
+                var copy = rows[n].ToArray();
+                foreach (var i in figures) copy[i] = null;
+                rows[n] = copy;
+                hidden++;
+            }
+        }
         return hidden == 0 ? null : hidden;
     }
 }
